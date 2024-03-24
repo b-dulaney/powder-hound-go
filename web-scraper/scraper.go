@@ -12,7 +12,7 @@ import (
 
 func runChromeDP(ctx context.Context, tasks ...chromedp.Action) {
 	if err := chromedp.Run(ctx, tasks...); err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed running chromedp tasks: %s", err)
 	}
 }
 
@@ -130,7 +130,7 @@ func main() {
 
 		_, _, insertErr := supabase.From("golang-test").Insert(resortConditions, true, "id", "test", "1").Execute()
 		if insertErr != nil {
-			log.Printf("Error: %v", insertErr)
+			log.Panicf("Error: %v", insertErr)
 		}
 		log.Printf("%s updated successfully", config.Name)
 
@@ -165,7 +165,7 @@ func main() {
 
 		_, _, insertErr := supabase.From("golang-test").Insert(resortConditions, true, "id", "test", "1").Execute()
 		if insertErr != nil {
-			log.Printf("Error: %v", insertErr)
+			log.Panicf("Error: %v", insertErr)
 		}
 		log.Printf("%s updated successfully", config.Name)
 	}
