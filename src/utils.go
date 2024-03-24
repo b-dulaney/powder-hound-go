@@ -93,7 +93,7 @@ func loadEnvironmentVariables() {
 }
 
 func upsertSupabaseData(client *supabase.Client, data map[string]interface{}) error {
-	_, _, err := client.From("golang-test").Upsert(data, "id", "*", "estimated").Execute()
+	_, _, err := client.From("resort_conditions").Upsert(data, "mountain_id", "*", "estimated").Execute()
 	if err != nil {
 		log.Printf("Failed to upsert data: %s", err)
 	}

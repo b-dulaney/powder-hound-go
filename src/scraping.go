@@ -140,14 +140,14 @@ func scrapeResortData(configPath *string) (success bool) {
 	config := fetchConfig(configPath)
 
 	resortConditions := map[string]interface{}{
-		"id":         config.ID,
-		"name":       config.Name,
-		"baseDepth":  0,
-		"snow24":     0,
-		"snow48":     0,
-		"liftsOpen":  0,
-		"runsOpen":   0,
-		"updated_at": time.Now(),
+		"mountain_id":   config.ID,
+		"display_name":  config.Name,
+		"base_depth":    0,
+		"snow_past_24h": 0,
+		"snow_past_48h": 0,
+		"lifts_open":    0,
+		"runs_open":     0,
+		"updated_at":    time.Now(),
 	}
 
 	ctx, cancel := chromedp.NewContext(context.Background(), chromedp.WithLogf(log.Printf))
@@ -161,20 +161,20 @@ func scrapeResortData(configPath *string) (success bool) {
 	baseDepth, snow24, snow48, snow7Days, seasonTotal, snowpack := processConditions(ctx, config, conditionsNodes)
 	runsOpen, liftsOpen := getTerrainData(ctx, config)
 
-	resortConditions["baseDepth"] = baseDepth
-	resortConditions["snow24"] = snow24
-	resortConditions["snow48"] = snow48
-	resortConditions["runsOpen"] = runsOpen
-	resortConditions["liftsOpen"] = liftsOpen
+	resortConditions["base_depth"] = baseDepth
+	resortConditions["snow_past_24h"] = snow24
+	resortConditions["snow_past_48h"] = snow48
+	resortConditions["runs_open"] = runsOpen
+	resortConditions["lifts_open"] = liftsOpen
 
 	if config.Conditions.SnowpackSelector != "" {
-		resortConditions["snowpack"] = snowpack
+		resortConditions["snow_type"] = snowpack
 	}
 	if config.Conditions.SeasonTotalSelector != "" {
-		resortConditions["seasonTotal"] = convertStringToInt(seasonTotal)
+		resortConditions["snow_total"] = convertStringToInt(seasonTotal)
 	}
 	if config.Conditions.Snow7DaySelector != "" {
-		resortConditions["snow7Days"] = convertStringToInt(snow7Days)
+		resortConditions["snow_past_week"] = convertStringToInt(snow7Days)
 	}
 
 	err := upsertSupabaseData(supabase, resortConditions)
