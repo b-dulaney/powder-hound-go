@@ -20,6 +20,8 @@ FROM chromedp/headless-shell:114.0.5735.199 AS build-release-stage
 WORKDIR /
 
 COPY --from=build-stage /powder-hound-go /powder-hound-go
+COPY --from=build-stage /app/config /config
+COPY --from=build-stage /app/.env /.env
 
 EXPOSE 8080
 
