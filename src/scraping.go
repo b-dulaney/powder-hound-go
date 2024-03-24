@@ -41,7 +41,6 @@ func countLiftsAndRuns(ctx context.Context, config Config) (int, int) {
 			chromedp.Nodes(config.Terrain.RunStatusSelector, &openRuns, chromedp.ByQueryAll),
 		)
 	}
-
 	return len(openLifts), len(openRuns)
 }
 
@@ -75,6 +74,7 @@ func processTerrain(ctx context.Context, config Config, terrainNodes []*cdp.Node
 
 func navigateToURL(ctx context.Context, url string) {
 	runChromeDP(ctx, chromedp.EmulateViewport(1200, 1000), chromedp.Navigate(url))
+	log.Printf("Visiting %s", url)
 }
 
 func getConditionsNodes(ctx context.Context, config Config) []*cdp.Node {
@@ -121,6 +121,14 @@ func getTerrainData(ctx context.Context, config Config) (runsOpen, liftsOpen int
 	}
 
 	// Handles cases where the terrain data is on the same page as the conditions data
+	// but the exact count of lifts and runs is not provided
+	if config.Terrain.CountLifts {
+		liftsOpen, runsOpen = countLiftsAndRuns(ctx, config)
+		return runsOpen, liftsOpen
+	}
+
+	// Handles cases where the terrain data is on the same page as the conditions data
+	// with no special interactions required
 	terrainNodes := getTerrainNodes(ctx, config)
 	runsOpen, liftsOpen = processTerrain(ctx, config, terrainNodes)
 	return runsOpen, liftsOpen
@@ -148,12 +156,9 @@ func scrapeResortData(configPath *string) (success bool) {
 	ctx, cancel = context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 
-	log.Printf("Visiting %s", config.ConditionsURL)
-
 	navigateToURL(ctx, config.ConditionsURL)
 	conditionsNodes := getConditionsNodes(ctx, config)
 	baseDepth, snow24, snow48, snow7Days, seasonTotal, snowpack := processConditions(ctx, config, conditionsNodes)
-
 	runsOpen, liftsOpen := getTerrainData(ctx, config)
 
 	resortConditions["baseDepth"] = baseDepth

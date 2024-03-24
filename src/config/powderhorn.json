@@ -2,21 +2,24 @@
   "id": 27,
   "name": "Powderhorn",
   "separateURLs": false,
-  "conditionsURL": "https://www.powderhorn.com/explore/conditions/weather-report.html",
+  "conditionsURL": "https://powderhorn.com/explore/conditions/lift-status.html",
   "terrainURL": "",
+  "clickSelector": "",
   "conditions": {
-    "conditionsSelector": "",
-    "baseDepthSelector": "",
-    "snowpackSelector": "",
-    "seasonTotalSelector": "",
-    "snow24Selector": "",
-    "snow48Selector": "",
+    "conditionsSelector": "#sp-page-builder > div:nth-child(1)",
+    "baseDepthSelector": "#sppb-addon-1569088575114 > div:nth-child(1) > div:nth-child(1) > p:nth-child(2)",
+    "snowpackSelector": "#sppb-addon-1668191320677 > div:nth-child(1) > div:nth-child(1) > p:nth-child(2)",
+    "seasonTotalSelector": "#sppb-addon-1671662993154 > div:nth-child(1) > div:nth-child(1) > p:nth-child(2)",
+    "snow24Selector": "#sppb-addon-1569089277864 > div:nth-child(1) > div:nth-child(1) > p:nth-child(2)",
+    "snow48Selector": "#sppb-addon-1569088575109 > div:nth-child(1) > div:nth-child(1) > p:nth-child(2)",
     "snow7DaySelector": ""
   },
   "terrain": {
-    "terrainSelector": "",
-    "runsOpenSelector": "",
-    "liftsOpenSelector": "",
-    "liftDetailSelector": ""
+    "countLifts": true,
+    "terrainSelector": "#section-id-1668192481438",
+    "runsOpenSelector": "#column-id-1668191320658 > div:nth-child(1)",
+    "liftsOpenSelector": "#column-id-1668192481438 > div:nth-child(1)",
+    "liftStatusSelector": "div.bg-grey > h3 > span.fa.fa-check-square-o",
+    "runStatusSelector": "i.groomed > span.fa.fa-circle-o, i.groomed > span.fa.fa-check-square-o"
   }
 }
