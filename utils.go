@@ -86,7 +86,7 @@ func getTextFromNode(ctx context.Context, selector string, node *cdp.Node, resul
 }
 
 func loadEnvironmentVariables() {
-	err := godotenv.Load("../.env")
+	err := godotenv.Load(".env")
 	if err != nil {
 		log.Fatalf("Error loading .env file: %s", err)
 	}
