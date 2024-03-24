@@ -1,0 +1,22 @@
+{
+  "id": 7,
+  "name": "Sunlight Mountain",
+  "separateURLs": false,
+  "conditionsURL": "https://sunlightmtn.com/the-mountain/snow-weather-report",
+  "terrainURL": null,
+  "conditions": {
+    "conditionsSelector": ".main-parent",
+    "baseDepthSelector": "div.conditions-itens:nth-child(2) > span:nth-child(2)",
+    "snowpackSelector": "div.conditions-itens:nth-child(5) > span:nth-child(2)",
+    "seasonTotalSelector": "div.col-md-3:nth-child(5) > span:nth-child(2)",
+    "snow24Selector": "div.snow-fall-itens:nth-child(3) > span:nth-child(2)",
+    "snow48Selector": "div.col-md-3:nth-child(4) > span:nth-child(2)",
+    "snow7DaySelector": ""
+  },
+  "terrain": {
+    "terrainSelector": ".main-parent",
+    "runsOpenSelector": "div.conditions-itens:nth-child(4) > span:nth-child(2)",
+    "liftsOpenSelector": "div.conditions-itens:nth-child(3) > span:nth-child(2)",
+    "liftDetailSelector": ""
+  }
+}

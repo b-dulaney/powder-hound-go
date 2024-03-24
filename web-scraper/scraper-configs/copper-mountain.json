@@ -1,0 +1,22 @@
+{
+  "id": 4,
+  "name": "Copper Mountain",
+  "separateURLs": false,
+  "conditionsURL": "https://www.coppercolorado.com/the-mountain/conditions-weather/snow-report",
+  "terrainURL": null,
+  "conditions": {
+    "conditionsSelector": "ul.dst-grid",
+    "baseDepthSelector": "ul.dst-grid > li.dst-item:nth-child(6) > h3:nth-child(2)",
+    "snowpackSelector": "",
+    "seasonTotalSelector": "ul.dst-grid > li.dst-item:nth-child(5) > h3:nth-child(2)",
+    "snow24Selector": "ul.dst-grid > li.dst-item:nth-child(2) > h3:nth-child(2)",
+    "snow48Selector": "ul.dst-grid > li.dst-item:nth-child(3) > h3:nth-child(2)",
+    "snow7DaySelector": ""
+  },
+  "terrain": {
+    "terrainSelector": "ul.dtr-grid:nth-child(2)",
+    "runsOpenSelector": "ul.dtr-grid:nth-child(2) > li:nth-child(1) > div:nth-child(1) > svg:nth-child(1) > text:nth-child(3)",
+    "liftsOpenSelector": "ul.dtr-grid:nth-child(2) > li:nth-child(2) > div:nth-child(1) > svg:nth-child(1) > text:nth-child(3)",
+    "liftDetailSelector": ""
+  }
+}
