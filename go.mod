@@ -18,4 +18,5 @@ require (
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/supabase/postgrest-go v0.0.7 // indirect
 	golang.org/x/sys v0.18.0 // indirect
+	golang.org/x/text v0.14.0
 )

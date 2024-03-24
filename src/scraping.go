@@ -7,6 +7,8 @@ import (
 
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/chromedp"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 func clickProvidedSelector(ctx context.Context, config Config) {
@@ -168,7 +170,9 @@ func scrapeResortData(configPath *string) (success bool) {
 	resortConditions["lifts_open"] = liftsOpen
 
 	if config.Conditions.SnowpackSelector != "" {
-		resortConditions["snow_type"] = snowpack
+		lowercaseSnowpack := cases.Lower(language.English, cases.Compact).String(snowpack)
+		formattedSnowpack := cases.Title(language.English, cases.Compact).String(lowercaseSnowpack)
+		resortConditions["snow_type"] = formattedSnowpack
 	}
 	if config.Conditions.SeasonTotalSelector != "" {
 		resortConditions["snow_total"] = convertStringToInt(seasonTotal)
