@@ -4,6 +4,7 @@
   "separateURLs": true,
   "conditionsURL": "https://www.eldora.com/the-mountain/conditions-weather/current-conditions-forecast",
   "terrainURL": "https://www.eldora.com/the-mountain/lift-trail-report/snow-grooming-alpine",
+  "clickSelector": "div.styles__StyledFeedContainer-sc-1sc7djp-0:nth-child(3) > div:nth-child(2) > div:nth-child(1) > button:nth-child(1)",
   "conditions": {
     "conditionsSelector": ".dst-grid",
     "baseDepthSelector": "li.dst-item:nth-child(6) > h3:nth-child(2)",
@@ -14,7 +15,7 @@
     "snow7DaySelector": "li.dst-item:nth-child(4) > h3:nth-child(2)"
   },
   "terrain": {
-    "terrainSelector": ".styles__StyledMegaContainer-sc-fkr7l9-0 > div:nth-child(1) > div:nth-child(1) > ul:nth-child(1)",
+    "terrainSelector": ".styles__StyledMegaContainer-sc-fkr7l9-0 > div:nth-child(1) > div:nth-child(1) > ul:nth-child(1) > li:nth-child(2) > div:nth-child(1) > div:nth-child(2) > ul:nth-child(1)",
     "runsOpenSelector": ".styles__StyledMegaContainer-sc-fkr7l9-0 > div:nth-child(1) > div:nth-child(1) > ul:nth-child(1) > li:nth-child(2) > div:nth-child(1) > div:nth-child(2) > ul:nth-child(1) > li:nth-child(1) > div:nth-child(1) > svg:nth-child(1) > text:nth-child(3)",
     "liftsOpenSelector": ".styles__StyledMegaContainer-sc-fkr7l9-0 > div:nth-child(1) > div:nth-child(1) > ul:nth-child(1) > li:nth-child(2) > div:nth-child(1) > div:nth-child(2) > ul:nth-child(1) > li:nth-child(2) > div:nth-child(1) > svg:nth-child(1) > text:nth-child(3)",
     "liftDetailSelector": ""

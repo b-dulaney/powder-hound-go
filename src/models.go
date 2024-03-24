@@ -1,12 +1,5 @@
 package main
 
-import (
-	"encoding/json"
-	"io"
-	"log"
-	"os"
-)
-
 type ConditionsConfig struct {
 	ConditionsSelector  string `json:"conditionsSelector"`
 	BaseDepthSelector   string `json:"baseDepthSelector"`
@@ -18,9 +11,16 @@ type ConditionsConfig struct {
 }
 
 type TerrainConfig struct {
-	TerrainSelector   string `json:"terrainSelector"`
-	RunsOpenSelector  string `json:"runsOpenSelector"`
-	LiftsOpenSelector string `json:"liftsOpenSelector"`
+	SumRunsFromMultipleSources bool   `json:"sumRunsFromMultipleSources"`
+	CountLifts                 bool   `json:"countLifts"`
+	CountRuns                  bool   `json:"countRuns"`
+	TerrainSelector            string `json:"terrainSelector"`
+	RunsOpenSelector           string `json:"runsOpenSelector"`
+	LiftsOpenSelector          string `json:"liftsOpenSelector"`
+	LiftStatusSelector         string `json:"liftStatusSelector"`
+	RunStatusSelector          string `json:"runStatusSelector"`
+	RunClickInteraction        bool   `json:"runClickInteraction"`
+	RunClickSelector           string `json:"runClickSelector"`
 }
 
 type Config struct {
@@ -34,20 +34,6 @@ type Config struct {
 	Terrain       TerrainConfig    `json:"terrain"`
 }
 
-func fetchConfig(configPath *string) Config {
-	if *configPath == "" {
-		log.Fatal("Config path is required")
-	}
-	configFile, configErr := os.Open(*configPath)
-
-	if configErr != nil {
-		log.Fatal(configErr)
-	}
-
-	byteValue, _ := io.ReadAll(configFile)
-	var config Config
-	json.Unmarshal(byteValue, &config)
-
-	defer configFile.Close()
-	return config
+type ScrapingRequestBody struct {
+	MountainName string `json:"mountainName"`
 }
