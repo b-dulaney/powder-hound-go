@@ -26,17 +26,18 @@ func main() {
 	}
 
 	hourlyResortCronJob := cron.New()
-	hourlyResortCronJob.AddFunc("0 * * * * *", func() {
+	hourlyResortCronJob.AddFunc("@hourly", func() {
 		QueueResortWebScrapeTasks(client)
 	})
 	hourlyResortCronJob.Start()
+	defer hourlyResortCronJob.Stop()
 
 	earlyMorningResortCronJob := cron.NewWithLocation(loc)
 	earlyMorningResortCronJob.AddFunc("*/10 5-6 * * *", func() {
 		QueueResortWebScrapeTasks(client)
 	})
 	earlyMorningResortCronJob.Start()
+	defer earlyMorningResortCronJob.Stop()
 
 	select {}
-
 }
