@@ -15,8 +15,8 @@
   },
   "terrain": {
     "terrainSelector": ".terrain_summary",
-    "runsOpenSelector": "div.terrain_summary__tab_main:nth-child(2) > div:nth-child(2) > div:nth-child(1) > span:nth-child(1)",
-    "liftsOpenSelector": "div.terrain_summary__tab_main:nth-child(1) > div:nth-child(2) > div:nth-child(1) > span:nth-child(1)",
+    "runsOpenSelector": "div.terrain_summary__tab_main:nth-child(1) > div:nth-child(2) > div:nth-child(1) > span:nth-child(1)",
+    "liftsOpenSelector": "div.terrain_summary__tab_main:nth-child(2) > div:nth-child(2) > div:nth-child(1) > span:nth-child(1)",
     "liftDetailSelector": ""
   }
 }
