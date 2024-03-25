@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"log"
+	"time"
 
 	"github.com/hibiken/asynq"
 )
@@ -40,9 +41,9 @@ func QueueResortWebScrapeTasks(client *asynq.Client) {
 			log.Fatal(err)
 		}
 
-		t1 := asynq.NewTask("scrape:resort", payload)
+		task := asynq.NewTask("scrape:resort", payload)
 
-		info, err := client.Enqueue(t1)
+		info, err := client.Enqueue(task, asynq.MaxRetry(2), asynq.Timeout(5*time.Minute))
 
 		if err != nil {
 			log.Fatal(err)
