@@ -197,7 +197,7 @@ func scrapeResortData(configPath *string) (success bool) {
 		"updated_at":    time.Now(),
 	}
 
-	ctx, cancel := chromedp.NewContext(context.Background(), chromedp.WithLogf(log.Printf))
+	ctx, cancel := chromedp.NewContext(context.Background(), chromedp.WithDebugf(log.Printf))
 
 	defer cancel()
 
