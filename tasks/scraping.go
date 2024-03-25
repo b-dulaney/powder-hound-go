@@ -1,4 +1,4 @@
-package main
+package tasks
 
 import (
 	"context"
@@ -146,7 +146,7 @@ func getTerrainData(ctx context.Context, config Config) (runsOpen, liftsOpen int
 	return runsOpen, liftsOpen
 }
 
-func scrapeResortData(configPath *string) (success bool) {
+func scrapeResortData(configPath *string) error {
 	supabase := initializeSupabase()
 
 	config := fetchConfig(configPath)
@@ -193,5 +193,8 @@ func scrapeResortData(configPath *string) (success bool) {
 	}
 
 	err := upsertSupabaseData(supabase, resortConditions)
-	return err == nil
+	if err != nil {
+		return err
+	}
+	return nil
 }
