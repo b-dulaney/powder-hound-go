@@ -1,29 +1,39 @@
+# Build stage
 FROM golang:1.22.1 as build-stage
-
 WORKDIR /app
-
-COPY go.mod go.sum .env ./
+COPY go.mod go.sum Makefile .env ./
 COPY config ./config/
+COPY client ./client/
+COPY tasks ./tasks/
+COPY worker ./worker/
 RUN go mod download
 
-COPY *.go ./
+# Client build stage
+FROM build-stage as client-build-stage
+RUN CGO_ENABLED=0 GOOS=linux go build -o /client ./client
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o /powder-hound-go
+# Worker build stage
+FROM build-stage as worker-build-stage
+RUN CGO_ENABLED=0 GOOS=linux go build -o /worker ./worker
 
-# Run the tests in the container
-FROM build-stage AS run-test-stage
-RUN go test -v ./...
-
-# Deploy the application binary into a lean image
-FROM chromedp/headless-shell:114.0.5735.199 AS build-release-stage
+# Client release stage
+FROM chromedp/headless-shell:114.0.5735.199 AS client-release-stage
 RUN apt-get update && apt-get install -y ca-certificates --no-install-recommends && rm -rf /var/lib/apt/lists/*
-
 WORKDIR /
-
-COPY --from=build-stage /powder-hound-go /powder-hound-go
+COPY --from=client-build-stage /client /client
 COPY --from=build-stage /app/config /config
+COPY --from=build-stage /app/tasks /tasks
 COPY --from=build-stage /app/.env /.env
-
 EXPOSE 8080
+ENTRYPOINT ["/client"]
 
-ENTRYPOINT ["/powder-hound-go"]
+# Worker release stage
+FROM chromedp/headless-shell:114.0.5735.199 AS worker-release-stage
+RUN apt-get update && apt-get install -y ca-certificates --no-install-recommends && rm -rf /var/lib/apt/lists/*
+WORKDIR /
+COPY --from=worker-build-stage /worker /worker
+COPY --from=build-stage /app/config /config
+COPY --from=build-stage /app/tasks /tasks
+COPY --from=build-stage /app/.env /.env
+EXPOSE 8081
+ENTRYPOINT ["/worker"]

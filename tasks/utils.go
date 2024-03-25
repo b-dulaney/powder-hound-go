@@ -1,4 +1,4 @@
-package main
+package tasks
 
 import (
 	"context"
@@ -87,7 +87,7 @@ func getTextFromNode(ctx context.Context, selector string, node *cdp.Node, resul
 	}
 }
 
-func loadEnvironmentVariables() {
+func LoadEnvironmentVariables() {
 	err := godotenv.Load(".env")
 	if err != nil {
 		log.Fatalf("Error loading .env file: %s", err)
