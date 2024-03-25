@@ -155,7 +155,7 @@ func scrapeResortData(configPath *string) (success bool) {
 	ctx, cancel := chromedp.NewContext(context.Background(), chromedp.WithLogf(log.Printf))
 	defer cancel()
 
-	ctx, cancel = context.WithTimeout(ctx, 15*time.Second)
+	ctx, cancel = context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 
 	navigateToURL(ctx, config.ConditionsURL)
