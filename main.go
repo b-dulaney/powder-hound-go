@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -39,6 +40,10 @@ func handleResortScraping(c echo.Context) error {
 func main() {
 	loadEnvironmentVariables()
 	e := echo.New()
+
+	e.Use(middleware.TimeoutWithConfig(middleware.TimeoutConfig{
+		Timeout: 300 * time.Second}))
+
 	e.POST("/", handleResortScraping)
 
 	e.Use(middleware.Logger())
