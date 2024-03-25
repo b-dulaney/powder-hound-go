@@ -16,7 +16,7 @@ func main() {
 	}
 	srv := asynq.NewServer(
 		asynq.RedisClientOpt{Addr: redisHost + ":6379", Password: "", DB: 0},
-		asynq.Config{Concurrency: 10},
+		asynq.Config{Concurrency: 1},
 	)
 
 	mux := asynq.NewServeMux()
