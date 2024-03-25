@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/chromedp/cdproto/cdp"
+	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -75,7 +76,51 @@ func processTerrain(ctx context.Context, config Config, terrainNodes []*cdp.Node
 }
 
 func navigateToURL(ctx context.Context, url string) {
-	runChromeDP(ctx, chromedp.EmulateViewport(1200, 1000), chromedp.Navigate(url))
+	const script = `(function(w, n, wn) {
+		// Pass the Webdriver Test.
+		Object.defineProperty(n, 'webdriver', {
+		  get: () => false,
+		});
+	  
+		// Pass the Plugins Length Test.
+		// Overwrite the plugins property to use a custom getter.
+		Object.defineProperty(n, 'plugins', {
+		  // This just needs to have length > 0 for the current test,
+		  // but we could mock the plugins too if necessary.
+		  get: () => [1, 2, 3, 4, 5],
+		});
+	  
+		// Pass the Languages Test.
+		// Overwrite the plugins property to use a custom getter.
+		Object.defineProperty(n, 'languages', {
+		  get: () => ['en-US', 'en'],
+		});
+	  
+		// Pass the Chrome Test.
+		// We can mock this in as much depth as we need for the test.
+		w.chrome = {
+		  runtime: {},
+		};
+	  
+		// Pass the Permissions Test.
+		const originalQuery = wn.permissions.query;
+		return wn.permissions.query = (parameters) => (
+		  parameters.name === 'notifications' ?
+			Promise.resolve({ state: Notification.permission }) :
+			originalQuery(parameters)
+		);
+	  
+	  })(window, navigator, window.navigator);`
+
+	runChromeDP(ctx, chromedp.ActionFunc(func(ctx context.Context) error {
+		var err error
+		_, err = page.AddScriptToEvaluateOnNewDocument(script).Do(ctx)
+		if err != nil {
+			return err
+		}
+		return nil
+	}),
+		chromedp.EmulateViewport(1200, 1000), chromedp.Navigate(url))
 	log.Printf("Visiting %s", url)
 }
 
@@ -153,6 +198,7 @@ func scrapeResortData(configPath *string) (success bool) {
 	}
 
 	ctx, cancel := chromedp.NewContext(context.Background(), chromedp.WithLogf(log.Printf))
+
 	defer cancel()
 
 	ctx, cancel = context.WithTimeout(ctx, 300*time.Second)
