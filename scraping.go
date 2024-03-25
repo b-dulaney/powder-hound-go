@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/chromedp/cdproto/cdp"
-	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -20,14 +19,24 @@ func clickProvidedSelector(ctx context.Context, config Config) {
 }
 
 func countLiftsAndRuns(ctx context.Context, config Config) (int, int) {
+	tctx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
 	var openLifts, openRuns []*cdp.Node
 	if config.Terrain.RunClickInteraction {
 		var buttonsToClick []*cdp.Node
-		runChromeDP(ctx,
+		err := runChromeDP(tctx,
 			chromedp.WaitReady(config.Terrain.LiftsOpenSelector),
 			chromedp.Nodes(config.Terrain.LiftStatusSelector, &openLifts, chromedp.ByQueryAll),
 			chromedp.Nodes(config.Terrain.RunClickSelector, &buttonsToClick, chromedp.ByQueryAll),
 		)
+
+		if err != nil {
+			log.Printf("No open lift nodes found")
+			runChromeDP(ctx,
+				chromedp.Nodes(config.Terrain.RunClickSelector, &buttonsToClick, chromedp.ByQueryAll),
+			)
+		}
+
 		if len(buttonsToClick) == 0 {
 			log.Panic("No buttons provided to click")
 		}
@@ -76,51 +85,7 @@ func processTerrain(ctx context.Context, config Config, terrainNodes []*cdp.Node
 }
 
 func navigateToURL(ctx context.Context, url string) {
-	const script = `(function(w, n, wn) {
-		// Pass the Webdriver Test.
-		Object.defineProperty(n, 'webdriver', {
-		  get: () => false,
-		});
-	  
-		// Pass the Plugins Length Test.
-		// Overwrite the plugins property to use a custom getter.
-		Object.defineProperty(n, 'plugins', {
-		  // This just needs to have length > 0 for the current test,
-		  // but we could mock the plugins too if necessary.
-		  get: () => [1, 2, 3, 4, 5],
-		});
-	  
-		// Pass the Languages Test.
-		// Overwrite the plugins property to use a custom getter.
-		Object.defineProperty(n, 'languages', {
-		  get: () => ['en-US', 'en'],
-		});
-	  
-		// Pass the Chrome Test.
-		// We can mock this in as much depth as we need for the test.
-		w.chrome = {
-		  runtime: {},
-		};
-	  
-		// Pass the Permissions Test.
-		const originalQuery = wn.permissions.query;
-		return wn.permissions.query = (parameters) => (
-		  parameters.name === 'notifications' ?
-			Promise.resolve({ state: Notification.permission }) :
-			originalQuery(parameters)
-		);
-	  
-	  })(window, navigator, window.navigator);`
-
-	runChromeDP(ctx, chromedp.ActionFunc(func(ctx context.Context) error {
-		var err error
-		_, err = page.AddScriptToEvaluateOnNewDocument(script).Do(ctx)
-		if err != nil {
-			return err
-		}
-		return nil
-	}),
-		chromedp.EmulateViewport(1200, 1000), chromedp.Navigate(url))
+	runChromeDP(ctx, chromedp.EmulateViewport(1200, 1000), chromedp.Navigate(url))
 	log.Printf("Visiting %s", url)
 }
 
@@ -148,7 +113,7 @@ func getTerrainData(ctx context.Context, config Config) (runsOpen, liftsOpen int
 		clickProvidedSelector(ctx, config)
 		terrainNodes := getTerrainNodes(ctx, config)
 		liftsOpen, runsOpen = processTerrain(ctx, config, terrainNodes)
-		return liftsOpen, runsOpen
+		return runsOpen, liftsOpen
 	}
 
 	// Handles cases where the terrain data is on a separate page
@@ -159,12 +124,12 @@ func getTerrainData(ctx context.Context, config Config) (runsOpen, liftsOpen int
 		// and we need to count them ourselves
 		if config.Terrain.CountLifts {
 			liftsOpen, runsOpen = countLiftsAndRuns(ctx, config)
-			return liftsOpen, runsOpen
+			return runsOpen, liftsOpen
 		}
 
 		terrainNodes := getTerrainNodes(ctx, config)
 		liftsOpen, runsOpen = processTerrain(ctx, config, terrainNodes)
-		return liftsOpen, runsOpen
+		return runsOpen, liftsOpen
 	}
 
 	// Handles cases where the terrain data is on the same page as the conditions data
@@ -197,7 +162,7 @@ func scrapeResortData(configPath *string) (success bool) {
 		"updated_at":    time.Now(),
 	}
 
-	ctx, cancel := chromedp.NewContext(context.Background(), chromedp.WithDebugf(log.Printf))
+	ctx, cancel := chromedp.NewContext(context.Background(), chromedp.WithLogf(log.Printf))
 
 	defer cancel()
 

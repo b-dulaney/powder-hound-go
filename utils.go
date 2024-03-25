@@ -73,10 +73,12 @@ func initializeSupabase() *supabase.Client {
 	return client
 }
 
-func runChromeDP(ctx context.Context, tasks ...chromedp.Action) {
-	if err := chromedp.Run(ctx, tasks...); err != nil {
-		log.Fatalf("Failed running chromedp tasks: %s", err)
+func runChromeDP(ctx context.Context, tasks ...chromedp.Action) error {
+	err := chromedp.Run(ctx, tasks...)
+	if err != nil {
+		return err
 	}
+	return nil
 }
 
 func getTextFromNode(ctx context.Context, selector string, node *cdp.Node, result *string) {
