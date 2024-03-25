@@ -18,7 +18,7 @@ func clickProvidedSelector(ctx context.Context, config Config) {
 	)
 }
 
-func countLiftsAndRuns(ctx context.Context, config Config) (int, int) {
+func countLiftsAndRuns(ctx context.Context, config Config) (runsOpen, liftsOpen int) {
 	tctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 	var openLifts, openRuns []*cdp.Node
@@ -53,7 +53,7 @@ func countLiftsAndRuns(ctx context.Context, config Config) (int, int) {
 			chromedp.Nodes(config.Terrain.RunStatusSelector, &openRuns, chromedp.ByQueryAll),
 		)
 	}
-	return len(openLifts), len(openRuns)
+	return len(openRuns), len(openLifts)
 }
 
 func processConditions(ctx context.Context, config Config, conditionsNodes []*cdp.Node) (baseDepth, snow24, snow48 int, snow7Days, seasonTotal, snowpack string) {
@@ -112,7 +112,7 @@ func getTerrainData(ctx context.Context, config Config) (runsOpen, liftsOpen int
 	if config.ClickSelector != "" {
 		clickProvidedSelector(ctx, config)
 		terrainNodes := getTerrainNodes(ctx, config)
-		liftsOpen, runsOpen = processTerrain(ctx, config, terrainNodes)
+		runsOpen, liftsOpen = processTerrain(ctx, config, terrainNodes)
 		return runsOpen, liftsOpen
 	}
 
@@ -123,19 +123,19 @@ func getTerrainData(ctx context.Context, config Config) (runsOpen, liftsOpen int
 		// Handles cases where an exact count of lifts and runs is not provided
 		// and we need to count them ourselves
 		if config.Terrain.CountLifts {
-			liftsOpen, runsOpen = countLiftsAndRuns(ctx, config)
+			runsOpen, liftsOpen = countLiftsAndRuns(ctx, config)
 			return runsOpen, liftsOpen
 		}
 
 		terrainNodes := getTerrainNodes(ctx, config)
-		liftsOpen, runsOpen = processTerrain(ctx, config, terrainNodes)
+		runsOpen, liftsOpen = processTerrain(ctx, config, terrainNodes)
 		return runsOpen, liftsOpen
 	}
 
 	// Handles cases where the terrain data is on the same page as the conditions data
 	// but the exact count of lifts and runs is not provided
 	if config.Terrain.CountLifts {
-		liftsOpen, runsOpen = countLiftsAndRuns(ctx, config)
+		runsOpen, liftsOpen = countLiftsAndRuns(ctx, config)
 		return runsOpen, liftsOpen
 	}
 
