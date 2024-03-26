@@ -37,7 +37,7 @@ func BuildAlertEmail(emailData []EmailData, title, intro, key string) string {
 				Data: tableData,
 				Columns: hermes.Columns{
 					CustomWidth: map[string]string{
-						key: "25%",
+						key: "33%",
 					},
 					CustomAlignment: map[string]string{
 						key: "right",
