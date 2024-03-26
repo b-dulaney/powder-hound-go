@@ -43,7 +43,7 @@ func QueueResortWebScrapeTasks(client *asynq.Client) {
 
 		task := asynq.NewTask("scrape:resort", payload)
 
-		info, err := client.Enqueue(task, asynq.MaxRetry(2), asynq.Timeout(5*time.Minute))
+		info, err := client.Enqueue(task, asynq.MaxRetry(2), asynq.Timeout(10*time.Minute), asynq.TaskID(mountain))
 
 		if err != nil {
 			log.Fatal(err)
