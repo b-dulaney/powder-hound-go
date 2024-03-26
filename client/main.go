@@ -3,11 +3,13 @@ package main
 import (
 	"log"
 	"os"
+	"os/signal"
 	"powderhoundgo/tasks"
+	"syscall"
 	"time"
 
 	"github.com/hibiken/asynq"
-	"github.com/robfig/cron"
+	"github.com/robfig/cron/v3"
 )
 
 func main() {
@@ -25,17 +27,25 @@ func main() {
 		log.Fatal(err)
 	}
 
-	hourlyResortCronJob := cron.New()
-	hourlyResortCronJob.AddFunc("@hourly", func() {
+	cron := cron.New(cron.WithLocation(loc))
+	cron.AddFunc("@hourly", func() {
 		QueueResortWebScrapeTasks(client)
 	})
-	hourlyResortCronJob.Start()
 
-	earlyMorningResortCronJob := cron.NewWithLocation(loc)
-	earlyMorningResortCronJob.AddFunc("*/10 5-6 * * *", func() {
+	cron.AddFunc("*/10 5-6 * * *", func() {
 		QueueResortWebScrapeTasks(client)
 	})
-	earlyMorningResortCronJob.Start()
+
+	go cron.Start()
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
+	<-sig
+
+	printCronEntries(cron.Entries())
 
 	select {}
+}
+
+func printCronEntries(cronEntries []cron.Entry) {
+	log.Printf("Cron Info: %+v\n", cronEntries)
 }
