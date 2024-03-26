@@ -34,6 +34,16 @@ type Config struct {
 	Terrain       TerrainConfig    `json:"terrain"`
 }
 
-type ScrapingRequestBody struct {
-	MountainName string `json:"mountainName"`
+type ResortWebScrapePayload struct {
+	MountainName string
+}
+
+type EmailData struct {
+	Location string
+	Snowfall int
+}
+
+type AlertEmailPayload struct {
+	Email     string
+	EmailData []EmailData
 }

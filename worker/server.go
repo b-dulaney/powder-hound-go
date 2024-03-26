@@ -14,13 +14,21 @@ func main() {
 	if redisHost == "" {
 		redisHost = "localhost"
 	}
-	srv := asynq.NewServer(
-		asynq.RedisClientOpt{Addr: redisHost + ":6379", Password: "", DB: 0},
-		asynq.Config{Concurrency: 1},
-	)
+	redisOpts := asynq.RedisClientOpt{Addr: redisHost + ":6379", Password: "", DB: 0}
+	srv := asynq.NewServer(redisOpts, asynq.Config{
+		Concurrency: 0,
+		Queues: map[string]int{
+			"high":    3,
+			"default": 2,
+			"low":     1,
+		},
+		StrictPriority: true,
+	})
 
 	mux := asynq.NewServeMux()
 	mux.HandleFunc(tasks.TypeResortWebScrapingJob, tasks.HandleResortWebScrapeTask)
+	mux.HandleFunc(tasks.TypeForecastAlertEmail, tasks.HandleForecastAlertEmailTask)
+	mux.HandleFunc(tasks.TypeOvernightEmail, tasks.HandleOvernightAlertEmailTask)
 
 	if err := srv.Run(mux); err != nil {
 		log.Fatal(err)

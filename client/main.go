@@ -14,11 +14,13 @@ import (
 
 func main() {
 	tasks.LoadEnvironmentVariables()
+	supabase := tasks.InitializeSupabase()
+
 	redisHost := os.Getenv("REDIS_HOST")
 	if redisHost == "" {
 		redisHost = "localhost"
 	}
-	log.Printf("Connecting to Redis at %s", redisHost)
+
 	client := asynq.NewClient(asynq.RedisClientOpt{Addr: redisHost + ":6379", Password: "", DB: 0})
 	defer client.Close()
 
@@ -28,12 +30,24 @@ func main() {
 	}
 
 	cron := cron.New(cron.WithLocation(loc))
+	// Regular hourly web scraping jobs
 	cron.AddFunc("@hourly", func() {
 		QueueResortWebScrapeTasks(client)
 	})
 
+	// Early morning web scraping jobs - checking for overnight snowfall - 5:00am - 6:00am
 	cron.AddFunc("*/10 5-6 * * *", func() {
 		QueueResortWebScrapeTasks(client)
+	})
+
+	// Daily forecast alert emails - 4:30pm
+	cron.AddFunc("30 16 * * *", func() {
+		QueueForecastAlertEmailTasks(client, supabase)
+	})
+
+	// Overnight alert emails - 6:05am
+	cron.AddFunc("5 6 * * *", func() {
+		QueueOvernightAlertEmailTasks(client, supabase)
 	})
 
 	go cron.Start()

@@ -13,6 +13,7 @@ import (
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/chromedp"
 	"github.com/joho/godotenv"
+	"github.com/resend/resend-go/v2"
 	"github.com/supabase-community/supabase-go"
 )
 
@@ -63,7 +64,7 @@ func convertStringToInt(input string) int {
 	return result
 }
 
-func initializeSupabase() *supabase.Client {
+func InitializeSupabase() *supabase.Client {
 	SUPABASE_URL := os.Getenv("SUPABASE_URL")
 	SUPABASE_SERVICE_ROLE_KEY := os.Getenv("SUPABASE_SERVICE_ROLE_KEY")
 	client, clientErr := supabase.NewClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, nil)
@@ -88,7 +89,7 @@ func getTextFromNode(ctx context.Context, selector string, node *cdp.Node, resul
 }
 
 func LoadEnvironmentVariables() {
-	err := godotenv.Load(".env")
+	err := godotenv.Load("../.env")
 	if err != nil {
 		log.Fatalf("Error loading .env file: %s", err)
 	}
@@ -100,4 +101,9 @@ func upsertSupabaseData(client *supabase.Client, data map[string]interface{}) er
 		log.Printf("Failed to upsert data: %s", err)
 	}
 	return err
+}
+
+func InitializeResendClient() *resend.Client {
+	client := resend.NewClient(os.Getenv("RESEND_API_KEY"))
+	return client
 }

@@ -154,7 +154,7 @@ func getTerrainData(ctx context.Context, config Config) (runsOpen, liftsOpen int
 }
 
 func scrapeResortData(configPath *string) error {
-	supabase := initializeSupabase()
+	supabase := InitializeSupabase()
 
 	config := fetchConfig(configPath)
 
