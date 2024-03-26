@@ -74,11 +74,18 @@ func processConditions(ctx context.Context, config Config, conditionsNodes []*cd
 
 func processTerrain(ctx context.Context, config Config, terrainNodes []*cdp.Node) (runsOpen, liftsOpen int) {
 	var runsOpenText, liftsOpenText string
+
+	tctx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
 	for _, node := range terrainNodes {
-		runChromeDP(ctx,
+		err := runChromeDP(tctx,
 			chromedp.TextContent(config.Terrain.RunsOpenSelector, &runsOpenText, chromedp.ByQuery, chromedp.FromNode(node)),
 			chromedp.TextContent(config.Terrain.LiftsOpenSelector, &liftsOpenText, chromedp.ByQuery, chromedp.FromNode(node)),
 		)
+		if err != nil {
+			log.Printf("Error getting terrain data: %v", err)
+			liftsOpenText = "0"
+		}
 	}
 	runsOpen, liftsOpen = convertStringToInt(removeDenominator(runsOpenText)), convertStringToInt(removeDenominator(liftsOpenText))
 	return
