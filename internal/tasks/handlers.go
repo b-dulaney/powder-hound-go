@@ -8,7 +8,6 @@ import (
 	"powderhoundgo/internal/email"
 	"powderhoundgo/internal/scraping"
 	"powderhoundgo/internal/supabase"
-	"time"
 
 	"github.com/hibiken/asynq"
 )
@@ -23,7 +22,7 @@ func HandleResortWebScrapeTask(c context.Context, t *asynq.Task) error {
 
 	resortData, err := scraping.ScrapeResortData(&configPath)
 	if err != nil {
-		scrapingData := supabase.ScrapingStatusData{MountainName: p.MountainName, Success: false, Error: err.Error(), Time: time.Now().String()}
+		scrapingData := supabase.ScrapingStatusData{MountainName: p.MountainName, Success: false, Error: err.Error()}
 		err := supabaseClient.InsertScrapingStatus(scrapingData)
 		if err != nil {
 			log.Printf("failed to insert scraping status: %s", err)
@@ -36,7 +35,7 @@ func HandleResortWebScrapeTask(c context.Context, t *asynq.Task) error {
 		return fmt.Errorf("failed to upsert conditions data %s", p.MountainName)
 	}
 
-	scrapingData := supabase.ScrapingStatusData{MountainName: p.MountainName, Success: true, Time: time.Now().String()}
+	scrapingData := supabase.ScrapingStatusData{MountainName: p.MountainName, Success: true}
 	err = supabaseClient.InsertScrapingStatus(scrapingData)
 	if err != nil {
 		log.Printf("failed to insert scraping status: %s", err)

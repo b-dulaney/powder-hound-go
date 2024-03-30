@@ -36,7 +36,6 @@ func (s *SupabaseService) InsertScrapingStatus(data ScrapingStatusData) error {
 		"display_name": data.MountainName,
 		"success":      data.Success,
 		"error":        data.Error,
-		"time":         data.Time,
 	}
 	_, _, err := s.client.From("scraping_status").Insert(jsonData, false, "id", "*", "").Execute()
 	if err != nil {

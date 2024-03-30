@@ -26,7 +26,6 @@ type ScrapingStatusData struct {
 	MountainName string
 	Success      bool
 	Error        string
-	Time         string
 }
 
 type SupabaseClient interface {
