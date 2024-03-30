@@ -19,8 +19,6 @@ func HandleResortWebScrapeTask(c context.Context, t *asynq.Task) error {
 	if err := json.Unmarshal(t.Payload(), &p); err != nil {
 		return fmt.Errorf("json.Unmarshal failed: %v: %w", err, asynq.SkipRetry)
 	}
-	log.Printf("Starting web scraping job for %s", p.MountainName)
-
 	configPath := fmt.Sprintf("../../config/%s.json", p.MountainName)
 
 	resortData, err := scraping.ScrapeResortData(&configPath)

@@ -45,10 +45,10 @@ func QueueResortWebScrapeTasks(client *asynq.Client) {
 
 		task := asynq.NewTask(tasks.TypeResortWebScrapingJob, payload)
 
-		info, err := client.Enqueue(task, asynq.MaxRetry(2), asynq.Timeout(10*time.Minute), asynq.TaskID(mountain), asynq.Queue("default"))
+		info, err := client.Enqueue(task, asynq.MaxRetry(2), asynq.Timeout(5*time.Minute), asynq.TaskID(mountain), asynq.Queue("default"))
 
 		if err != nil {
-			log.Fatal(err)
+			log.Printf("[*] Error enqueuing task: %v", err)
 		}
 		log.Printf("[*] Enqueued task: %v", info)
 	}
@@ -77,7 +77,7 @@ func QueueForecastAlertEmailTasks(client *asynq.Client, supabase supabase.Supaba
 		info, err := client.Enqueue(task, asynq.TaskID(fmt.Sprintf("forecast-%s", user.Email)), asynq.Queue("high"))
 
 		if err != nil {
-			log.Fatal(err)
+			log.Printf("[*] Error enqueuing task: %v", err)
 		}
 		log.Printf("[*] Enqueued task: %v", info)
 	}
@@ -106,7 +106,7 @@ func QueueOvernightAlertEmailTasks(client *asynq.Client, supabase supabase.Supab
 		info, err := client.Enqueue(task, asynq.TaskID(fmt.Sprintf("overnight-%s", user.Email)), asynq.Queue("high"))
 
 		if err != nil {
-			log.Fatal(err)
+			log.Printf("[*] Error enqueuing task: %v", err)
 		}
 		log.Printf("[*] Enqueued task: %v", info)
 	}

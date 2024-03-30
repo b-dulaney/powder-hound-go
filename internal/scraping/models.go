@@ -8,6 +8,7 @@ type ConditionsConfig struct {
 	Snow24Selector      string `json:"snow24Selector"`
 	Snow48Selector      string `json:"snow48Selector"`
 	Snow7DaySelector    string `json:"snow7DaySelector"`
+	WaitForSelector     string `json:"waitForSelector"`
 }
 
 type TerrainConfig struct {

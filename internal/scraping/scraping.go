@@ -2,6 +2,7 @@ package scraping
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
 
@@ -63,27 +64,47 @@ func countLiftsAndRuns(ctx context.Context, config Config) (runsOpen, liftsOpen 
 	return len(openRuns), len(openLifts), nil
 }
 
+func processTextAndConvertToInt(text string, propertyName string) (int, error) {
+	if text == "" {
+		return 0, fmt.Errorf("no value found for %s", propertyName)
+	}
+
+	value, err := convertStringToInt(text)
+	if err != nil {
+		return 0, fmt.Errorf("failed to convert %s to int with value: %s", propertyName, text)
+	}
+
+	return value, nil
+}
+
 func processConditions(ctx context.Context, config Config, conditionsNodes []*cdp.Node) (baseDepth, snow24, snow48 int, snow7Days, seasonTotal, snowpack string, err error) {
 	var baseDepthText, snow24Text, snow48Text string
+	if config.Conditions.WaitForSelector != "" {
+		runChromeDP(ctx, chromedp.WaitReady(config.Conditions.WaitForSelector))
+	}
 	for _, node := range conditionsNodes {
 		getTextFromNode(ctx, config.Conditions.SnowpackSelector, node, &snowpack)
 		getTextFromNode(ctx, config.Conditions.SeasonTotalSelector, node, &seasonTotal)
 		getTextFromNode(ctx, config.Conditions.Snow7DaySelector, node, &snow7Days)
 		runChromeDP(ctx,
+			chromedp.WaitEnabled(config.Conditions.BaseDepthSelector),
 			chromedp.Text(config.Conditions.BaseDepthSelector, &baseDepthText, chromedp.ByQuery, chromedp.FromNode(node)),
 			chromedp.Text(config.Conditions.Snow24Selector, &snow24Text, chromedp.ByQuery, chromedp.FromNode(node)),
 			chromedp.Text(config.Conditions.Snow48Selector, &snow48Text, chromedp.ByQuery, chromedp.FromNode(node)),
 		)
 	}
-	baseDepth, err = convertStringToInt(baseDepthText)
+
+	baseDepth, err = processTextAndConvertToInt(baseDepthText, "base depth")
 	if err != nil {
 		return 0, 0, 0, "", "", "", err
 	}
-	snow24, err = convertStringToInt(snow24Text)
+
+	snow24, err = processTextAndConvertToInt(snow24Text, "no 24 hour snowfall data found")
 	if err != nil {
 		return 0, 0, 0, "", "", "", err
 	}
-	snow48, err = convertStringToInt(snow48Text)
+
+	snow48, err = processTextAndConvertToInt(snow48Text, "no 48 hour snowfall data found")
 	if err != nil {
 		return 0, 0, 0, "", "", "", err
 	}
@@ -115,7 +136,6 @@ func processTerrain(ctx context.Context, config Config, terrainNodes []*cdp.Node
 
 func navigateToURL(ctx context.Context, url string) {
 	runChromeDP(ctx, chromedp.EmulateViewport(1200, 1000), chromedp.Navigate(url))
-	log.Printf("Visiting %s", url)
 }
 
 func getConditionsNodes(ctx context.Context, config Config) []*cdp.Node {
@@ -193,7 +213,7 @@ func ScrapeResortData(configPath *string) (map[string]interface{}, error) {
 
 	defer cancel()
 
-	ctx, cancel = context.WithTimeout(ctx, 300*time.Second)
+	ctx, cancel = context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 
 	navigateToURL(ctx, config.ConditionsURL)
@@ -221,14 +241,14 @@ func ScrapeResortData(configPath *string) (map[string]interface{}, error) {
 	if config.Conditions.SeasonTotalSelector != "" {
 		result, err := convertStringToInt(seasonTotal)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to convert season total to int: %w", err)
 		}
 		resortConditions["snow_total"] = result
 	}
 	if config.Conditions.Snow7DaySelector != "" {
 		result, err := convertStringToInt(snow7Days)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to convert 7 day snowfall to int: %w", err)
 		}
 		resortConditions["snow_past_week"] = result
 	}
