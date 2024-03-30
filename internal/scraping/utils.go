@@ -3,6 +3,7 @@ package scraping
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log"
 	"os"
@@ -61,7 +62,8 @@ func convertStringToInt(input string) (int, error) {
 
 	result, err := strconv.Atoi(cleanedString)
 	if err != nil {
-		return 0, err
+		errorWithInput := errors.New("Failed to convert string to int: " + input)
+		return 0, errorWithInput
 	}
 	return result, nil
 }
