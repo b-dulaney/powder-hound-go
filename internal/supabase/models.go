@@ -22,10 +22,18 @@ type UserForecastAlert struct {
 	Alerts []ForecastAlert `json:"alerts"`
 }
 
+type ScrapingStatusData struct {
+	MountainName string
+	Success      bool
+	Error        string
+	Time         string
+}
+
 type SupabaseClient interface {
 	UpsertResortConditionsData(data map[string]interface{}) error
 	GetUserOvernightAlerts() []UserOvernightAlert
 	GetUserForecastAlerts() []UserForecastAlert
+	InsertScrapingStatus(data ScrapingStatusData) error
 }
 
 type SupabaseService struct {

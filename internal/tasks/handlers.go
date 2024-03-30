@@ -8,12 +8,13 @@ import (
 	"powderhoundgo/internal/email"
 	"powderhoundgo/internal/scraping"
 	"powderhoundgo/internal/supabase"
+	"time"
 
 	"github.com/hibiken/asynq"
 )
 
 func HandleResortWebScrapeTask(c context.Context, t *asynq.Task) error {
-	supabase := supabase.NewSupabaseService()
+	supabaseClient := supabase.NewSupabaseService()
 	var p ResortWebScrapePayload
 	if err := json.Unmarshal(t.Payload(), &p); err != nil {
 		return fmt.Errorf("json.Unmarshal failed: %v: %w", err, asynq.SkipRetry)
@@ -24,13 +25,23 @@ func HandleResortWebScrapeTask(c context.Context, t *asynq.Task) error {
 
 	resortData, err := scraping.ScrapeResortData(&configPath)
 	if err != nil {
+		scrapingData := supabase.ScrapingStatusData{MountainName: p.MountainName, Success: false, Error: err.Error(), Time: time.Now().String()}
+		err := supabaseClient.InsertScrapingStatus(scrapingData)
+		if err != nil {
+			log.Printf("failed to insert scraping status: %s", err)
+		}
 		return fmt.Errorf("failed to scrape %s: %w", p.MountainName, err)
-		// Add logic to send failed scraping task to supabase
 	}
 
-	err = supabase.UpsertResortConditionsData(resortData)
+	err = supabaseClient.UpsertResortConditionsData(resortData)
 	if err != nil {
 		return fmt.Errorf("failed to upsert conditions data %s", p.MountainName)
+	}
+
+	scrapingData := supabase.ScrapingStatusData{MountainName: p.MountainName, Success: true, Time: time.Now().String()}
+	err = supabaseClient.InsertScrapingStatus(scrapingData)
+	if err != nil {
+		log.Printf("failed to insert scraping status: %s", err)
 	}
 
 	log.Printf("Finished web scraping job for %s", p.MountainName)
@@ -46,7 +57,7 @@ func HandleAlertEmailTask(c context.Context, t *asynq.Task, subject string, buil
 	emailBody := buildEmailBody(p.EmailData)
 
 	resend := email.NewResendService()
-	err := resend.SendEmail(p.Email, subject, emailBody)
+	err := resend.SendEmail(subject, emailBody, p.Email)
 	if err != nil {
 		return fmt.Errorf("failed to send email: %w", err)
 	}

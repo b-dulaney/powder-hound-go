@@ -31,9 +31,18 @@ func (s *SupabaseService) UpsertResortConditionsData(data map[string]interface{}
 	return err
 }
 
-func (s *MockSupabaseService) UpsertResortConditionsData(data map[string]interface{}) error {
-	log.Printf("Mock upsert data: %v", data)
-	return nil
+func (s *SupabaseService) InsertScrapingStatus(data ScrapingStatusData) error {
+	jsonData := map[string]interface{}{
+		"display_name": data.MountainName,
+		"success":      data.Success,
+		"error":        data.Error,
+		"time":         data.Time,
+	}
+	_, _, err := s.client.From("scraping_status").Insert(jsonData, false, "id", "*", "").Execute()
+	if err != nil {
+		log.Printf("Failed to insert scraping status: %s", err)
+	}
+	return err
 }
 
 func (s *SupabaseService) GetUserOvernightAlerts() []UserOvernightAlert {
@@ -60,7 +69,12 @@ func (s *SupabaseService) GetUserForecastAlerts() []UserForecastAlert {
 	return userAlerts
 }
 
-// Mock implementation of GetUserOvernightAlerts for testing and local development
+/** Mock Supabase Service Implementations **/
+func (s *MockSupabaseService) UpsertResortConditionsData(data map[string]interface{}) error {
+	log.Printf("Mock upsert data: %v", data)
+	return nil
+}
+
 func (s *MockSupabaseService) GetUserOvernightAlerts() []UserOvernightAlert {
 	return []UserOvernightAlert{
 		{
@@ -75,7 +89,6 @@ func (s *MockSupabaseService) GetUserOvernightAlerts() []UserOvernightAlert {
 	}
 }
 
-// Mock implementation of GetUserForecastAlerts for testing and local development
 func (s *MockSupabaseService) GetUserForecastAlerts() []UserForecastAlert {
 	return []UserForecastAlert{
 		{
@@ -88,4 +101,9 @@ func (s *MockSupabaseService) GetUserForecastAlerts() []UserForecastAlert {
 			},
 		},
 	}
+}
+
+func (s *MockSupabaseService) InsertScrapingStatus(data ScrapingStatusData) error {
+	log.Printf("Mock insert scraping status: %v", data)
+	return nil
 }
