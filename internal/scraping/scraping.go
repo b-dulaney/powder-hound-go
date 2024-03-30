@@ -1,4 +1,4 @@
-package tasks
+package scraping
 
 import (
 	"context"
@@ -18,7 +18,7 @@ func clickProvidedSelector(ctx context.Context, config Config) {
 	)
 }
 
-func countLiftsAndRuns(ctx context.Context, config Config) (runsOpen, liftsOpen int) {
+func countLiftsAndRuns(ctx context.Context, config Config) (runsOpen, liftsOpen int, err error) {
 	tctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 	var openLifts, openRuns []*cdp.Node
@@ -32,9 +32,12 @@ func countLiftsAndRuns(ctx context.Context, config Config) (runsOpen, liftsOpen 
 
 		if err != nil {
 			log.Printf("No open lift nodes found")
-			runChromeDP(ctx,
+			runErr := runChromeDP(ctx,
 				chromedp.Nodes(config.Terrain.RunClickSelector, &buttonsToClick, chromedp.ByQueryAll),
 			)
+			if runErr != nil {
+				return 0, 0, runErr
+			}
 		}
 
 		if len(buttonsToClick) == 0 {
@@ -47,16 +50,20 @@ func countLiftsAndRuns(ctx context.Context, config Config) (runsOpen, liftsOpen 
 			chromedp.Nodes(config.Terrain.RunStatusSelector, &openRuns, chromedp.ByQueryAll),
 		)
 	} else {
-		runChromeDP(ctx,
+		err := runChromeDP(ctx,
 			chromedp.WaitReady(config.Terrain.LiftsOpenSelector),
 			chromedp.Nodes(config.Terrain.LiftStatusSelector, &openLifts, chromedp.ByQueryAll),
 			chromedp.Nodes(config.Terrain.RunStatusSelector, &openRuns, chromedp.ByQueryAll),
 		)
+		if err != nil {
+			log.Printf("Error getting lift and run data: %v", err)
+			return 0, 0, err
+		}
 	}
-	return len(openRuns), len(openLifts)
+	return len(openRuns), len(openLifts), nil
 }
 
-func processConditions(ctx context.Context, config Config, conditionsNodes []*cdp.Node) (baseDepth, snow24, snow48 int, snow7Days, seasonTotal, snowpack string) {
+func processConditions(ctx context.Context, config Config, conditionsNodes []*cdp.Node) (baseDepth, snow24, snow48 int, snow7Days, seasonTotal, snowpack string, err error) {
 	var baseDepthText, snow24Text, snow48Text string
 	for _, node := range conditionsNodes {
 		getTextFromNode(ctx, config.Conditions.SnowpackSelector, node, &snowpack)
@@ -68,13 +75,23 @@ func processConditions(ctx context.Context, config Config, conditionsNodes []*cd
 			chromedp.Text(config.Conditions.Snow48Selector, &snow48Text, chromedp.ByQuery, chromedp.FromNode(node)),
 		)
 	}
-	var baseDepthInt, snow24Int, snow48Int int = convertStringToInt(baseDepthText), convertStringToInt(snow24Text), convertStringToInt(snow48Text)
-	return baseDepthInt, snow24Int, snow48Int, snow7Days, seasonTotal, snowpack
+	baseDepth, err = convertStringToInt(baseDepthText)
+	if err != nil {
+		return 0, 0, 0, "", "", "", err
+	}
+	snow24, err = convertStringToInt(snow24Text)
+	if err != nil {
+		return 0, 0, 0, "", "", "", err
+	}
+	snow48, err = convertStringToInt(snow48Text)
+	if err != nil {
+		return 0, 0, 0, "", "", "", err
+	}
+	return baseDepth, snow24, snow48, snow7Days, seasonTotal, snowpack, nil
 }
 
-func processTerrain(ctx context.Context, config Config, terrainNodes []*cdp.Node) (runsOpen, liftsOpen int) {
+func processTerrain(ctx context.Context, config Config, terrainNodes []*cdp.Node) (runsOpen, liftsOpen int, err error) {
 	var runsOpenText, liftsOpenText string
-
 	tctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 	for _, node := range terrainNodes {
@@ -87,8 +104,13 @@ func processTerrain(ctx context.Context, config Config, terrainNodes []*cdp.Node
 			liftsOpenText = "0"
 		}
 	}
-	runsOpen, liftsOpen = convertStringToInt(removeDenominator(runsOpenText)), convertStringToInt(removeDenominator(liftsOpenText))
-	return
+	runsOpenFormatted, err := removeDenominator(runsOpenText)
+	liftsOpenFormatted, err := removeDenominator(liftsOpenText)
+
+	runsOpen, err = convertStringToInt(runsOpenFormatted)
+	liftsOpen, err = convertStringToInt(liftsOpenFormatted)
+
+	return runsOpen, liftsOpen, err
 }
 
 func navigateToURL(ctx context.Context, url string) {
@@ -114,13 +136,13 @@ func getTerrainNodes(ctx context.Context, config Config) []*cdp.Node {
 	return terrainNodes
 }
 
-func getTerrainData(ctx context.Context, config Config) (runsOpen, liftsOpen int) {
+func getTerrainData(ctx context.Context, config Config) (runsOpen, liftsOpen int, err error) {
 	// Handles cases where the site requires a click to load the terrain data
 	if config.ClickSelector != "" {
 		clickProvidedSelector(ctx, config)
 		terrainNodes := getTerrainNodes(ctx, config)
-		runsOpen, liftsOpen = processTerrain(ctx, config, terrainNodes)
-		return runsOpen, liftsOpen
+		runsOpen, liftsOpen, err = processTerrain(ctx, config, terrainNodes)
+		return runsOpen, liftsOpen, err
 	}
 
 	// Handles cases where the terrain data is on a separate page
@@ -130,32 +152,30 @@ func getTerrainData(ctx context.Context, config Config) (runsOpen, liftsOpen int
 		// Handles cases where an exact count of lifts and runs is not provided
 		// and we need to count them ourselves
 		if config.Terrain.CountLifts {
-			runsOpen, liftsOpen = countLiftsAndRuns(ctx, config)
-			return runsOpen, liftsOpen
+			runsOpen, liftsOpen, err = countLiftsAndRuns(ctx, config)
+			return runsOpen, liftsOpen, err
 		}
 
 		terrainNodes := getTerrainNodes(ctx, config)
-		runsOpen, liftsOpen = processTerrain(ctx, config, terrainNodes)
-		return runsOpen, liftsOpen
+		runsOpen, liftsOpen, err = processTerrain(ctx, config, terrainNodes)
+		return runsOpen, liftsOpen, err
 	}
 
 	// Handles cases where the terrain data is on the same page as the conditions data
 	// but the exact count of lifts and runs is not provided
 	if config.Terrain.CountLifts {
-		runsOpen, liftsOpen = countLiftsAndRuns(ctx, config)
-		return runsOpen, liftsOpen
+		runsOpen, liftsOpen, err = countLiftsAndRuns(ctx, config)
+		return runsOpen, liftsOpen, err
 	}
 
 	// Handles cases where the terrain data is on the same page as the conditions data
 	// with no special interactions required
 	terrainNodes := getTerrainNodes(ctx, config)
-	runsOpen, liftsOpen = processTerrain(ctx, config, terrainNodes)
-	return runsOpen, liftsOpen
+	runsOpen, liftsOpen, err = processTerrain(ctx, config, terrainNodes)
+	return runsOpen, liftsOpen, err
 }
 
-func scrapeResortData(configPath *string) error {
-	supabase := InitializeSupabase()
-
+func ScrapeResortData(configPath *string) (map[string]interface{}, error) {
 	config := fetchConfig(configPath)
 
 	resortConditions := map[string]interface{}{
@@ -178,8 +198,14 @@ func scrapeResortData(configPath *string) error {
 
 	navigateToURL(ctx, config.ConditionsURL)
 	conditionsNodes := getConditionsNodes(ctx, config)
-	baseDepth, snow24, snow48, snow7Days, seasonTotal, snowpack := processConditions(ctx, config, conditionsNodes)
-	runsOpen, liftsOpen := getTerrainData(ctx, config)
+	baseDepth, snow24, snow48, snow7Days, seasonTotal, snowpack, err := processConditions(ctx, config, conditionsNodes)
+	if err != nil {
+		return nil, err
+	}
+	runsOpen, liftsOpen, err := getTerrainData(ctx, config)
+	if err != nil {
+		return nil, err
+	}
 
 	resortConditions["base_depth"] = baseDepth
 	resortConditions["snow_past_24h"] = snow24
@@ -193,15 +219,19 @@ func scrapeResortData(configPath *string) error {
 		resortConditions["snow_type"] = formattedSnowpack
 	}
 	if config.Conditions.SeasonTotalSelector != "" {
-		resortConditions["snow_total"] = convertStringToInt(seasonTotal)
+		result, err := convertStringToInt(seasonTotal)
+		if err != nil {
+			return nil, err
+		}
+		resortConditions["snow_total"] = result
 	}
 	if config.Conditions.Snow7DaySelector != "" {
-		resortConditions["snow_past_week"] = convertStringToInt(snow7Days)
+		result, err := convertStringToInt(snow7Days)
+		if err != nil {
+			return nil, err
+		}
+		resortConditions["snow_past_week"] = result
 	}
 
-	err := upsertSupabaseData(supabase, resortConditions)
-	if err != nil {
-		return err
-	}
-	return nil
+	return resortConditions, err
 }

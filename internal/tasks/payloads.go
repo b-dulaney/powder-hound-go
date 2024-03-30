@@ -2,6 +2,7 @@ package tasks
 
 import (
 	"encoding/json"
+	"powderhoundgo/internal/email"
 
 	"github.com/hibiken/asynq"
 )
@@ -21,7 +22,7 @@ func NewResortWebScrapeTask(name string) (*asynq.Task, error) {
 	return asynq.NewTask(TypeResortWebScrapingJob, payload), nil
 }
 
-func NewAlertEmailTask(email string, emailData []EmailData, taskType string) (*asynq.Task, error) {
+func NewAlertEmailTask(email string, emailData []email.EmailData, taskType string) (*asynq.Task, error) {
 	payload, err := json.Marshal(AlertEmailPayload{Email: email, EmailData: emailData})
 	if err != nil {
 		return nil, err
@@ -30,10 +31,10 @@ func NewAlertEmailTask(email string, emailData []EmailData, taskType string) (*a
 	return asynq.NewTask(taskType, payload), nil
 }
 
-func NewForecastAlertEmailTask(email string, emailData []EmailData) (*asynq.Task, error) {
+func NewForecastAlertEmailTask(email string, emailData []email.EmailData) (*asynq.Task, error) {
 	return NewAlertEmailTask(email, emailData, TypeForecastAlertEmail)
 }
 
-func NewOvernightAlertEmailTask(email string, emailData []EmailData) (*asynq.Task, error) {
+func NewOvernightAlertEmailTask(email string, emailData []email.EmailData) (*asynq.Task, error) {
 	return NewAlertEmailTask(email, emailData, TypeOvernightEmail)
 }

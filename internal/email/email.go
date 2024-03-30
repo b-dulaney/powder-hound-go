@@ -1,10 +1,12 @@
-package tasks
+package email
 
 import (
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/matcornic/hermes/v2"
+	"github.com/resend/resend-go/v2"
 )
 
 var h = hermes.Hermes{
@@ -37,7 +39,7 @@ func BuildAlertEmail(emailData []EmailData, title, intro, key string) string {
 				Data: tableData,
 				Columns: hermes.Columns{
 					CustomWidth: map[string]string{
-						key: "33%",
+						key: "40%",
 					},
 					CustomAlignment: map[string]string{
 						key: "right",
@@ -70,4 +72,40 @@ func BuildForecastAlertEmail(emailData []EmailData) string {
 
 func BuildOvernightAlertEmail(emailData []EmailData) string {
 	return BuildAlertEmail(emailData, "Snowfall Alert", "The following locations have received fresh snowfall.", "Fresh Snow")
+}
+
+func (s *ResendService) SendEmail(subject string, body string, to string) error {
+	params := &resend.SendEmailRequest{
+		From:    "PowderHound <alerts@powderhound.io>",
+		To:      []string{to},
+		Subject: subject,
+		Html:    body,
+	}
+	sent, err := s.Client.Emails.Send(params)
+	if err != nil {
+		return fmt.Errorf("failed to send %s email to %s: %w", subject, to, err)
+	}
+
+	log.Printf("Finished sending %s email to %s. Resend ID: %s", subject, to, sent.Id)
+	return nil
+}
+
+func (s *MockEmailService) SendEmail(subject string, body string, to string) error {
+	log.Printf("Mock email sent to %s with subject %s and body %s", to, subject, body)
+	return nil
+}
+
+func NewResendService() EmailService {
+	ENV := os.Getenv("ENV")
+	API_KEY := os.Getenv("RESEND_API_KEY")
+
+	if ENV == "production" {
+		client := resend.NewClient(API_KEY)
+		return &ResendService{
+			Client: client,
+		}
+	}
+
+	return &MockEmailService{}
+
 }

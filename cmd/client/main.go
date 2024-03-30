@@ -4,7 +4,9 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"powderhoundgo/tasks"
+	"powderhoundgo/internal/queue"
+	"powderhoundgo/internal/supabase"
+	"powderhoundgo/internal/util"
 	"syscall"
 	"time"
 
@@ -13,8 +15,8 @@ import (
 )
 
 func main() {
-	tasks.LoadEnvironmentVariables()
-	supabase := tasks.InitializeSupabase()
+	util.LoadEnvironmentVariables()
+	supabase := supabase.NewSupabaseService()
 
 	redisHost := os.Getenv("REDIS_HOST")
 	if redisHost == "" {
@@ -32,22 +34,22 @@ func main() {
 	cron := cron.New(cron.WithLocation(loc))
 	// Regular hourly web scraping jobs
 	cron.AddFunc("@hourly", func() {
-		QueueResortWebScrapeTasks(client)
+		queue.QueueResortWebScrapeTasks(client)
 	})
 
 	// Early morning web scraping jobs - checking for overnight snowfall - 5:00am - 6:00am
 	cron.AddFunc("*/10 5-6 * * *", func() {
-		QueueResortWebScrapeTasks(client)
+		queue.QueueResortWebScrapeTasks(client)
 	})
 
 	// Daily forecast alert emails - 4:30pm
 	cron.AddFunc("30 16 * * *", func() {
-		QueueForecastAlertEmailTasks(client, supabase)
+		queue.QueueForecastAlertEmailTasks(client, supabase)
 	})
 
 	// Overnight alert emails - 6:05am
 	cron.AddFunc("5 6 * * *", func() {
-		QueueOvernightAlertEmailTasks(client, supabase)
+		queue.QueueOvernightAlertEmailTasks(client, supabase)
 	})
 
 	go cron.Start()

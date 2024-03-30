@@ -1,15 +1,17 @@
-package main
+package queue
 
 import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"powderhoundgo/tasks"
 	"sort"
 	"time"
 
+	"powderhoundgo/internal/email"
+	"powderhoundgo/internal/supabase"
+	"powderhoundgo/internal/tasks"
+
 	"github.com/hibiken/asynq"
-	"github.com/supabase-community/supabase-go"
 )
 
 var MountainNames []string = []string{
@@ -34,26 +36,6 @@ var MountainNames []string = []string{
 	"sunlight-mountain",
 }
 
-type OvernightAlert struct {
-	Location string `json:"display_name"`
-	Snowfall int    `json:"snow_past_24h"`
-}
-
-type ForecastAlert struct {
-	Location string `json:"display_name"`
-	Snowfall int    `json:"snow_next_24h"`
-}
-
-type UserOvernightAlert struct {
-	Email  string           `json:"email"`
-	Alerts []OvernightAlert `json:"alerts"`
-}
-
-type UserForecastAlert struct {
-	Email  string          `json:"email"`
-	Alerts []ForecastAlert `json:"alerts"`
-}
-
 func QueueResortWebScrapeTasks(client *asynq.Client) {
 	for _, mountain := range MountainNames {
 		payload, err := json.Marshal(tasks.ResortWebScrapePayload{MountainName: mountain})
@@ -72,13 +54,13 @@ func QueueResortWebScrapeTasks(client *asynq.Client) {
 	}
 }
 
-func QueueForecastAlertEmailTasks(client *asynq.Client, supabase *supabase.Client) {
-	userAlerts := GetUserForecastAlerts(supabase)
+func QueueForecastAlertEmailTasks(client *asynq.Client, supabase supabase.SupabaseClient) {
+	userAlerts := supabase.GetUserForecastAlerts()
 
 	for _, user := range userAlerts {
-		var emailData []tasks.EmailData
+		var emailData []email.EmailData
 		for _, alert := range user.Alerts {
-			emailData = append(emailData, tasks.EmailData{Location: alert.Location, Snowfall: alert.Snowfall})
+			emailData = append(emailData, email.EmailData{Location: alert.Location, Snowfall: alert.Snowfall})
 		}
 
 		sort.Slice(emailData, func(i, j int) bool {
@@ -101,13 +83,13 @@ func QueueForecastAlertEmailTasks(client *asynq.Client, supabase *supabase.Clien
 	}
 }
 
-func QueueOvernightAlertEmailTasks(client *asynq.Client, supabase *supabase.Client) {
-	userAlerts := GetUserOvernightAlerts(supabase)
+func QueueOvernightAlertEmailTasks(client *asynq.Client, supabase supabase.SupabaseClient) {
+	userAlerts := supabase.GetUserOvernightAlerts()
 
 	for _, user := range userAlerts {
-		var emailData []tasks.EmailData
+		var emailData []email.EmailData
 		for _, alert := range user.Alerts {
-			emailData = append(emailData, tasks.EmailData{Location: alert.Location, Snowfall: alert.Snowfall})
+			emailData = append(emailData, email.EmailData{Location: alert.Location, Snowfall: alert.Snowfall})
 		}
 
 		sort.Slice(emailData, func(i, j int) bool {
@@ -128,28 +110,4 @@ func QueueOvernightAlertEmailTasks(client *asynq.Client, supabase *supabase.Clie
 		}
 		log.Printf("[*] Enqueued task: %v", info)
 	}
-}
-
-func GetUserOvernightAlerts(supabase *supabase.Client) []UserOvernightAlert {
-	userAlertsResponse := supabase.Rpc("group_overnight_snowfall_alert_data", "", nil)
-
-	var userAlerts []UserOvernightAlert
-	err := json.Unmarshal([]byte(userAlertsResponse), &userAlerts)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return userAlerts
-}
-
-func GetUserForecastAlerts(supabase *supabase.Client) []UserForecastAlert {
-	userAlertsResponse := supabase.Rpc("group_24h_forecast_alert_data", "", nil)
-
-	var userAlerts []UserForecastAlert
-	err := json.Unmarshal([]byte(userAlertsResponse), &userAlerts)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return userAlerts
 }

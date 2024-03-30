@@ -3,17 +3,19 @@ package main
 import (
 	"log"
 	"os"
-	"powderhoundgo/tasks"
+	"powderhoundgo/internal/tasks"
+	"powderhoundgo/internal/util"
 
 	"github.com/hibiken/asynq"
 )
 
 func main() {
-	tasks.LoadEnvironmentVariables()
+	util.LoadEnvironmentVariables()
 	redisHost := os.Getenv("REDIS_HOST")
 	if redisHost == "" {
 		redisHost = "localhost"
 	}
+
 	redisOpts := asynq.RedisClientOpt{Addr: redisHost + ":6379", Password: "", DB: 0}
 	srv := asynq.NewServer(redisOpts, asynq.Config{
 		Concurrency: 0,

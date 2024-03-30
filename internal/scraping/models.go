@@ -1,4 +1,4 @@
-package tasks
+package scraping
 
 type ConditionsConfig struct {
 	ConditionsSelector  string `json:"conditionsSelector"`
@@ -32,18 +32,4 @@ type Config struct {
 	TerrainURL    string           `json:"terrainURL"`
 	Conditions    ConditionsConfig `json:"conditions"`
 	Terrain       TerrainConfig    `json:"terrain"`
-}
-
-type ResortWebScrapePayload struct {
-	MountainName string
-}
-
-type EmailData struct {
-	Location string
-	Snowfall int
-}
-
-type AlertEmailPayload struct {
-	Email     string
-	EmailData []EmailData
 }

@@ -3,9 +3,9 @@ FROM golang:1.22.1 as build-stage
 WORKDIR /app
 COPY go.mod go.sum Makefile .env ./
 COPY config ./config/
-COPY client ./client/
-COPY tasks ./tasks/
-COPY worker ./worker/
+COPY cmd/worker ./worker/
+COPY cmd/client ./client/
+COPY internal ./internal/
 RUN go mod download
 
 # Client build stage
@@ -22,7 +22,7 @@ RUN apt-get update && apt-get install -y ca-certificates --no-install-recommends
 WORKDIR /
 COPY --from=client-build-stage /client /client
 COPY --from=build-stage /app/config /config
-COPY --from=build-stage /app/tasks /tasks
+COPY --from=build-stage /app/internal /internal
 COPY --from=build-stage /app/.env /.env
 EXPOSE 8080
 ENTRYPOINT ["/client"]
@@ -33,7 +33,7 @@ RUN apt-get update && apt-get install -y ca-certificates --no-install-recommends
 WORKDIR /
 COPY --from=worker-build-stage /worker /worker
 COPY --from=build-stage /app/config /config
-COPY --from=build-stage /app/tasks /tasks
+COPY --from=build-stage /app/internal /internal
 COPY --from=build-stage /app/.env /.env
 EXPOSE 8081
 ENTRYPOINT ["/worker"]
