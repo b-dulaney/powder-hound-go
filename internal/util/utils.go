@@ -79,7 +79,7 @@ func addDevelopmentScrapingCronTasks(cron *cron.Cron, client *asynq.Client) {
 
 func addProductionEmailCronTasks(cron *cron.Cron, client *asynq.Client, supabase supabase.SupabaseClient) {
 	// Daily forecast alert emails - 4:30pm
-	cron.AddFunc("30 16 * * *", func() {
+	cron.AddFunc("30 17 * * *", func() {
 		queue.QueueForecastAlertEmailTasks(client, supabase)
 	})
 
