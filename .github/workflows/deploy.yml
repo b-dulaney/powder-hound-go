@@ -15,7 +15,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            cd /powder-hound-go
+            cd powder-hound-go
             git pull
             docker compose -f deployment/email-service/docker-compose.yml up --build -d
 
@@ -31,6 +31,6 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
-            cd /powder-hound-go
+            cd powder-hound-go
             git pull
             docker compose -f deployment/scraping-service/docker-compose.yml up --build -d
