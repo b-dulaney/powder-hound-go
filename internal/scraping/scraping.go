@@ -213,7 +213,7 @@ func ScrapeResortData(configPath *string) (map[string]interface{}, error) {
 
 	defer cancel()
 
-	ctx, cancel = context.WithTimeout(ctx, 20*time.Second)
+	ctx, cancel = context.WithTimeout(ctx, 120*time.Second)
 	defer cancel()
 
 	navigateToURL(ctx, config.ConditionsURL)
