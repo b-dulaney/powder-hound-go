@@ -2,9 +2,8 @@
 FROM golang:1.22.1 as build-stage
 WORKDIR /app
 COPY go.mod go.sum Makefile .env ./
-COPY config ./config/
-COPY cmd/worker ./worker/
-COPY cmd/client ./client/
+COPY cmd/email-service/worker ./worker/
+COPY cmd/email-service/client ./client/
 COPY internal ./internal/
 RUN go mod download
 
@@ -17,22 +16,18 @@ FROM build-stage as worker-build-stage
 RUN CGO_ENABLED=0 GOOS=linux go build -o /worker ./worker
 
 # Client release stage
-FROM chromedp/headless-shell:114.0.5735.199 AS client-release-stage
-RUN apt-get update && apt-get install -y ca-certificates --no-install-recommends && rm -rf /var/lib/apt/lists/*
+FROM golang:1.22.1 AS client-release-stage
 WORKDIR /
 COPY --from=client-build-stage /client /client
-COPY --from=build-stage /app/config /config
 COPY --from=build-stage /app/internal /internal
 COPY --from=build-stage /app/.env /.env
 EXPOSE 8080
 ENTRYPOINT ["/client"]
 
 # Worker release stage
-FROM chromedp/headless-shell:114.0.5735.199 AS worker-release-stage
-RUN apt-get update && apt-get install -y ca-certificates --no-install-recommends && rm -rf /var/lib/apt/lists/*
+FROM golang:1.22.1 AS worker-release-stage
 WORKDIR /
 COPY --from=worker-build-stage /worker /worker
-COPY --from=build-stage /app/config /config
 COPY --from=build-stage /app/internal /internal
 COPY --from=build-stage /app/.env /.env
 EXPOSE 8081

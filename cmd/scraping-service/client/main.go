@@ -22,7 +22,7 @@ func main() {
 	client := asynq.NewClient(asynq.RedisClientOpt{Addr: redisHost + ":6379", Password: "", DB: 0})
 	defer client.Close()
 
-	cron := util.InitializeCronTasks(client, supabase)
+	cron := util.InitializeScrapingCronTasks(client, supabase)
 
 	go cron.Start()
 	sig := make(chan os.Signal, 1)

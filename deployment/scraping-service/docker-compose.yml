@@ -2,8 +2,8 @@ version: "3"
 services:
   client:
     build:
-      context: .
-      dockerfile: Dockerfile.multistage
+      context: ../../
+      dockerfile: deployment/scraping-service/Dockerfile
       target: client-release-stage
     restart: unless-stopped
     command: ["make", "client"]
@@ -13,8 +13,8 @@ services:
       - REDIS_HOST=redis
   worker:
     build:
-      context: .
-      dockerfile: Dockerfile.multistage
+      context: ../../
+      dockerfile: deployment/scraping-service/Dockerfile
       target: worker-release-stage
     restart: unless-stopped
     command: ["make", "worker"]

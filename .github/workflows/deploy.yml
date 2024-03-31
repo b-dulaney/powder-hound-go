@@ -1,0 +1,36 @@
+name: CI
+
+on: [push]
+
+jobs:
+  deployEmailService:
+    if: github.ref == 'refs/heads/main'
+    runs-on: [ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v2
+      - name: Deploy Email Service
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EMAIL_SERVICE_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /powder-hound-go
+            git pull
+            docker compose -f deployment/email-service/docker-compose.yml up --build -d
+
+  deployScrapingService:
+    if: github.ref == 'refs/heads/main'
+    runs-on: [ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v2
+      - name: Deploy Scraping Service
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SCRAPING_SERVICE_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            cd /powder-hound-go
+            git pull
+            docker compose -f deployment/scraping-service/docker-compose.yml up --build -d

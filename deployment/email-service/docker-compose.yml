@@ -1,0 +1,37 @@
+version: "3"
+services:
+  client:
+    build:
+      context: ../../
+      dockerfile: deployment/email-service/Dockerfile
+      target: client-release-stage
+    restart: unless-stopped
+    command: ["make", "client"]
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOST=redis
+  worker:
+    build:
+      context: ../../
+      dockerfile: deployment/email-service/Dockerfile
+      target: worker-release-stage
+    restart: unless-stopped
+    command: ["make", "worker"]
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOST=redis
+  asynqmon:
+    image: hibiken/asynqmon:latest
+    environment:
+      - REDIS_ADDR=redis:6379
+    ports:
+      - "8080:8080"
+    depends_on:
+      - redis
+  redis:
+    image: "redis/redis-stack-server:7.2.0-v9-x86_64"
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
