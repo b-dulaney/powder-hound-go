@@ -2,8 +2,8 @@ package queue
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
+	"os"
 	"sort"
 	"time"
 
@@ -43,9 +43,9 @@ func QueueResortWebScrapeTasks(client *asynq.Client) {
 			log.Fatal(err)
 		}
 
-		task := asynq.NewTask(tasks.TypeResortWebScrapingJob, payload)
+		task := buildTask(tasks.TypeResortWebScrapingJob, payload)
 
-		info, err := client.Enqueue(task, asynq.MaxRetry(2), asynq.Timeout(5*time.Minute), asynq.TaskID(mountain))
+		info, err := client.Enqueue(task, asynq.MaxRetry(3), asynq.Timeout(5*time.Minute))
 
 		if err != nil {
 			log.Printf("[*] Error enqueuing task: %v", err)
@@ -72,9 +72,9 @@ func QueueForecastAlertEmailTasks(client *asynq.Client, supabase supabase.Supaba
 			log.Fatal(err)
 		}
 
-		task := asynq.NewTask(tasks.TypeForecastAlertEmail, payload)
+		task := buildTask(tasks.TypeForecastAlertEmail, payload)
 
-		info, err := client.Enqueue(task, asynq.TaskID(fmt.Sprintf("forecast-%s", user.Email)))
+		info, err := client.Enqueue(task)
 
 		if err != nil {
 			log.Printf("[*] Error enqueuing task: %v", err)
@@ -101,13 +101,26 @@ func QueueOvernightAlertEmailTasks(client *asynq.Client, supabase supabase.Supab
 			log.Fatal(err)
 		}
 
-		task := asynq.NewTask(tasks.TypeOvernightEmail, payload)
+		task := buildTask(tasks.TypeOvernightEmail, payload)
 
-		info, err := client.Enqueue(task, asynq.TaskID(fmt.Sprintf("overnight-%s", user.Email)))
+		info, err := client.Enqueue(task)
 
 		if err != nil {
 			log.Printf("[*] Error enqueuing task: %v", err)
 		}
 		log.Printf("[*] Enqueued task: %v", info)
 	}
+}
+
+func buildTask(taskType string, payload []byte) *asynq.Task {
+	var task *asynq.Task
+	ENV := os.Getenv("ENV")
+
+	if ENV == "production" {
+		task = asynq.NewTask(taskType, payload, asynq.Retention(24*time.Hour))
+	} else {
+		task = asynq.NewTask(taskType, payload, asynq.Retention(5*time.Minute))
+	}
+
+	return task
 }
