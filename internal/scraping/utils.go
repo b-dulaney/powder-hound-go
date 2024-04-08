@@ -15,7 +15,7 @@ import (
 	"github.com/chromedp/chromedp"
 )
 
-func fetchConfig(configPath *string) Config {
+func FetchConfig(configPath *string) Config {
 	if *configPath == "" {
 		log.Fatal("Config path is required")
 	}

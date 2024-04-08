@@ -1,6 +1,7 @@
 {
   "id": 7,
   "name": "Sunlight Mountain",
+  "closingDate": "2024-04-06 5:00pm (MST)",
   "separateURLs": false,
   "conditionsURL": "https://sunlightmtn.com/the-mountain/snow-weather-report",
   "terrainURL": null,

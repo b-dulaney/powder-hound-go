@@ -1,6 +1,7 @@
 {
   "id": 4,
   "name": "Copper Mountain",
+  "closingDate": null,
   "separateURLs": false,
   "conditionsURL": "https://www.coppercolorado.com/the-mountain/conditions-weather/snow-report",
   "terrainURL": null,

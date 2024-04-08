@@ -1,6 +1,7 @@
 {
   "id": 27,
   "name": "Powderhorn",
+  "closingDate": "2024-04-14 5:00pm (MST)",
   "separateURLs": false,
   "conditionsURL": "https://powderhorn.com/explore/conditions/lift-status.html",
   "terrainURL": "",

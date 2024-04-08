@@ -1,6 +1,7 @@
 {
   "id": 12,
   "name": "Keystone",
+  "closingDate": "2024-04-07 5:00pm (MST)",
   "separateURLs": true,
   "conditionsURL": "https://www.keystoneresort.com/the-mountain/mountain-conditions/snow-and-weather-report.aspx",
   "terrainURL": "https://www.keystoneresort.com/the-mountain/mountain-conditions/terrain-and-lift-status.aspx",

@@ -2,12 +2,14 @@ package queue
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"sort"
 	"time"
 
 	"powderhoundgo/internal/email"
+	"powderhoundgo/internal/scraping"
 	"powderhoundgo/internal/supabase"
 	"powderhoundgo/internal/tasks"
 
@@ -38,19 +40,23 @@ var MountainNames []string = []string{
 
 func QueueResortWebScrapeTasks(client *asynq.Client) {
 	for _, mountain := range MountainNames {
-		payload, err := json.Marshal(tasks.ResortWebScrapePayload{MountainName: mountain})
-		if err != nil {
-			log.Fatal(err)
+		if isResortClosed(mountain) {
+			log.Printf("[*] Resort %s is closed - skipping job", mountain)
+		} else {
+			payload, err := json.Marshal(tasks.ResortWebScrapePayload{MountainName: mountain})
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			task := buildTask(tasks.TypeResortWebScrapingJob, payload)
+
+			info, err := client.Enqueue(task, asynq.MaxRetry(3), asynq.Timeout(5*time.Minute))
+
+			if err != nil {
+				log.Printf("[*] Error enqueuing task: %v", err)
+			}
+			log.Printf("[*] Enqueued task: %v", info)
 		}
-
-		task := buildTask(tasks.TypeResortWebScrapingJob, payload)
-
-		info, err := client.Enqueue(task, asynq.MaxRetry(3), asynq.Timeout(5*time.Minute))
-
-		if err != nil {
-			log.Printf("[*] Error enqueuing task: %v", err)
-		}
-		log.Printf("[*] Enqueued task: %v", info)
 	}
 }
 
@@ -123,4 +129,19 @@ func buildTask(taskType string, payload []byte) *asynq.Task {
 	}
 
 	return task
+}
+
+func isResortClosed(mountain string) bool {
+	configPath := fmt.Sprintf("../../config/%s.json", mountain)
+	config := scraping.FetchConfig(&configPath)
+
+	if config.ClosingDate != "" {
+		const layout = "2006-01-02 5:00pm (MST)"
+		closingDate, err := time.Parse(layout, config.ClosingDate)
+		if err != nil {
+			log.Printf("Error parsing closing date: %v", err)
+		}
+		return time.Now().After(closingDate)
+	}
+	return false
 }

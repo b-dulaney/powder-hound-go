@@ -196,7 +196,7 @@ func getTerrainData(ctx context.Context, config Config) (runsOpen, liftsOpen int
 }
 
 func ScrapeResortData(configPath *string) (map[string]interface{}, error) {
-	config := fetchConfig(configPath)
+	config := FetchConfig(configPath)
 
 	resortConditions := map[string]interface{}{
 		"mountain_id":   config.ID,

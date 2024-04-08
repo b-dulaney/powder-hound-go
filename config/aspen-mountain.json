@@ -1,6 +1,7 @@
 {
   "id": 15,
   "name": "Aspen Mountain",
+  "closingDate": "2024-04-21 5:00pm (MST)",
   "separateURLs": false,
   "conditionsURL": "https://www.aspensnowmass.com/four-mountains/aspen-mountain/snow-and-grooming-report",
   "terrainURL": null,

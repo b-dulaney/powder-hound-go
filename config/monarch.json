@@ -1,6 +1,7 @@
 {
   "id": 8,
   "name": "Monarch",
+  "closingDate": "2024-04-21 5:00pm (MST)",
   "separateURLs": false,
   "conditionsURL": "https://skimonarch.com/conditions/",
   "terrainURL": null,

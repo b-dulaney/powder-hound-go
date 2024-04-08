@@ -1,6 +1,7 @@
 {
   "id": 6,
   "name": "Eldora",
+  "closingDate": "2024-04-21 5:00pm (MST)",
   "separateURLs": true,
   "conditionsURL": "https://www.eldora.com/the-mountain/conditions-weather/current-conditions-forecast",
   "terrainURL": "https://www.eldora.com/the-mountain/lift-trail-report/snow-grooming-alpine",

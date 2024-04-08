@@ -27,6 +27,7 @@ type TerrainConfig struct {
 type Config struct {
 	ID            int              `json:"id"`
 	Name          string           `json:"name"`
+	ClosingDate   string           `json:"closingDate"`
 	SeparateURLs  bool             `json:"separateURLs"`
 	ClickSelector string           `json:"clickSelector"`
 	ConditionsURL string           `json:"conditionsURL"`
