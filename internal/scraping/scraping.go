@@ -22,6 +22,7 @@ func clickProvidedSelector(ctx context.Context, config Config) {
 func countLiftsAndRuns(ctx context.Context, config Config) (runsOpen, liftsOpen int, err error) {
 	tctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
+
 	var openLifts, openRuns []*cdp.Node
 	if config.Terrain.RunClickInteraction {
 		var buttonsToClick []*cdp.Node
@@ -51,14 +52,13 @@ func countLiftsAndRuns(ctx context.Context, config Config) (runsOpen, liftsOpen 
 			chromedp.Nodes(config.Terrain.RunStatusSelector, &openRuns, chromedp.ByQueryAll),
 		)
 	} else {
-		err := runChromeDP(ctx,
+		err := runChromeDP(tctx,
 			chromedp.WaitReady(config.Terrain.LiftsOpenSelector),
 			chromedp.Nodes(config.Terrain.LiftStatusSelector, &openLifts, chromedp.ByQueryAll),
 			chromedp.Nodes(config.Terrain.RunStatusSelector, &openRuns, chromedp.ByQueryAll),
 		)
 		if err != nil {
-			log.Printf("Error getting lift and run data: %v", err)
-			return 0, 0, err
+			return 0, 0, nil
 		}
 	}
 	return len(openRuns), len(openLifts), nil
