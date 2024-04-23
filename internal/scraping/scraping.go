@@ -216,7 +216,7 @@ func ScrapeResortData(mountainName *string) (map[string]interface{}, error) {
 
 	defer cancel()
 
-	ctx, cancel = context.WithTimeout(ctx, 120*time.Second)
+	ctx, cancel = context.WithTimeout(ctx, 180*time.Second)
 	defer cancel()
 
 	navigateToURL(ctx, config.ConditionsURL)
