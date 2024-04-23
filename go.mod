@@ -39,7 +39,7 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/ssor/bom v0.0.0-20170718123548-6386211fdfcf // indirect
-	github.com/supabase-community/storage-go v0.7.0 // indirect
+	github.com/supabase-community/storage-go v0.7.0
 	github.com/vanng822/css v1.0.1 // indirect
 	github.com/vanng822/go-premailer v1.20.2 // indirect
 	golang.org/x/crypto v0.21.0 // indirect
