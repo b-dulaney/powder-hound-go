@@ -2,45 +2,22 @@ package queue
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"os"
 	"sort"
 	"time"
 
 	"powderhoundgo/internal/email"
-	"powderhoundgo/internal/scraping"
 	"powderhoundgo/internal/supabase"
 	"powderhoundgo/internal/tasks"
 
 	"github.com/hibiken/asynq"
 )
 
-var MountainNames []string = []string{
-	"copper-mountain",
-	"aspen-mountain",
-	"aspen-highlands",
-	"powderhorn",
-	"vail",
-	"breckenridge",
-	"keystone",
-	"beaver-creek",
-	"aspen-snowmass",
-	"steamboat",
-	"telluride",
-	"winter-park",
-	"crested-butte",
-	"a-basin",
-	"eldora",
-	"loveland",
-	"monarch",
-	"purgatory",
-	"sunlight-mountain",
-}
-
-func QueueResortWebScrapeTasks(client *asynq.Client) {
-	for _, mountain := range MountainNames {
-		if isResortClosed(mountain) {
+func QueueResortWebScrapeTasks(client *asynq.Client, supabase supabase.SupabaseClient) {
+	mountainNames := supabase.GetAllMountainObjectNames()
+	for _, mountain := range mountainNames {
+		if isResortClosed(mountain, supabase) {
 			log.Printf("[*] Resort %s is closed - skipping job", mountain)
 		} else {
 			payload, err := json.Marshal(tasks.ResortWebScrapePayload{MountainName: mountain})
@@ -131,9 +108,10 @@ func buildTask(taskType string, payload []byte) *asynq.Task {
 	return task
 }
 
-func isResortClosed(mountain string) bool {
-	configPath := fmt.Sprintf("../../config/%s.json", mountain)
-	config := scraping.FetchConfig(&configPath)
+// Used to determine whether or not the web scraping task should be queued
+// If the config's closing date is in the past, we should not queue this task or collect any data
+func isResortClosed(mountain string, supabase supabase.SupabaseClient) bool {
+	config := supabase.GetConfigByName(mountain)
 
 	if config.ClosingDate != "" {
 		const layout = "2006-01-02 5:00pm (MST)"

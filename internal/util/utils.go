@@ -49,9 +49,9 @@ func InitializeScrapingCronTasks(client *asynq.Client, supabase supabase.Supabas
 	cron := cron.New(cron.WithLocation(loc))
 
 	if ENV == "production" {
-		addProductionScrapingCronTasks(cron, client)
+		addProductionScrapingCronTasks(cron, client, supabase)
 	} else {
-		addDevelopmentScrapingCronTasks(cron, client)
+		addDevelopmentScrapingCronTasks(cron, client, supabase)
 	}
 
 	printCronEntries(cron.Entries())
@@ -59,21 +59,21 @@ func InitializeScrapingCronTasks(client *asynq.Client, supabase supabase.Supabas
 	return cron
 }
 
-func addProductionScrapingCronTasks(cron *cron.Cron, client *asynq.Client) {
+func addProductionScrapingCronTasks(cron *cron.Cron, client *asynq.Client, supabase supabase.SupabaseClient) {
 	// Regular hourly web scraping jobs
 	cron.AddFunc("@hourly", func() {
-		queue.QueueResortWebScrapeTasks(client)
+		queue.QueueResortWebScrapeTasks(client, supabase)
 	})
 
 	// Early morning web scraping jobs - checking for overnight snowfall - 5:00am - 6:00am
 	cron.AddFunc("*/10 5-6 * * *", func() {
-		queue.QueueResortWebScrapeTasks(client)
+		queue.QueueResortWebScrapeTasks(client, supabase)
 	})
 }
 
-func addDevelopmentScrapingCronTasks(cron *cron.Cron, client *asynq.Client) {
-	cron.AddFunc("@every 1m", func() {
-		queue.QueueResortWebScrapeTasks(client)
+func addDevelopmentScrapingCronTasks(cron *cron.Cron, client *asynq.Client, supabase supabase.SupabaseClient) {
+	cron.AddFunc("@every 30s", func() {
+		queue.QueueResortWebScrapeTasks(client, supabase)
 	})
 }
 

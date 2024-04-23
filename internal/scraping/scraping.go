@@ -6,20 +6,22 @@ import (
 	"log"
 	"time"
 
+	"powderhoundgo/internal/supabase"
+
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/chromedp"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
 
-func clickProvidedSelector(ctx context.Context, config Config) {
+func clickProvidedSelector(ctx context.Context, config supabase.ScrapingConfig) {
 	runChromeDP(ctx,
 		chromedp.WaitVisible(config.ClickSelector),
 		chromedp.Click(config.ClickSelector),
 	)
 }
 
-func countLiftsAndRuns(ctx context.Context, config Config) (runsOpen, liftsOpen int, err error) {
+func countLiftsAndRuns(ctx context.Context, config supabase.ScrapingConfig) (runsOpen, liftsOpen int, err error) {
 	tctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 
@@ -77,7 +79,7 @@ func processTextAndConvertToInt(text string, propertyName string) (int, error) {
 	return value, nil
 }
 
-func processConditions(ctx context.Context, config Config, conditionsNodes []*cdp.Node) (baseDepth, snow24, snow48 int, snow7Days, seasonTotal, snowpack string, err error) {
+func processConditions(ctx context.Context, config supabase.ScrapingConfig, conditionsNodes []*cdp.Node) (baseDepth, snow24, snow48 int, snow7Days, seasonTotal, snowpack string, err error) {
 	var baseDepthText, snow24Text, snow48Text string
 	if config.Conditions.WaitForSelector != "" {
 		runChromeDP(ctx, chromedp.WaitReady(config.Conditions.WaitForSelector))
@@ -111,7 +113,7 @@ func processConditions(ctx context.Context, config Config, conditionsNodes []*cd
 	return baseDepth, snow24, snow48, snow7Days, seasonTotal, snowpack, nil
 }
 
-func processTerrain(ctx context.Context, config Config, terrainNodes []*cdp.Node) (runsOpen, liftsOpen int, err error) {
+func processTerrain(ctx context.Context, config supabase.ScrapingConfig, terrainNodes []*cdp.Node) (runsOpen, liftsOpen int, err error) {
 	var runsOpenText, liftsOpenText string
 	tctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
@@ -138,7 +140,7 @@ func navigateToURL(ctx context.Context, url string) {
 	runChromeDP(ctx, chromedp.EmulateViewport(1200, 1000), chromedp.Navigate(url))
 }
 
-func getConditionsNodes(ctx context.Context, config Config) []*cdp.Node {
+func getConditionsNodes(ctx context.Context, config supabase.ScrapingConfig) []*cdp.Node {
 	var conditionsNodes []*cdp.Node
 	runChromeDP(ctx,
 		chromedp.WaitVisible(config.Conditions.ConditionsSelector),
@@ -147,7 +149,7 @@ func getConditionsNodes(ctx context.Context, config Config) []*cdp.Node {
 	return conditionsNodes
 }
 
-func getTerrainNodes(ctx context.Context, config Config) []*cdp.Node {
+func getTerrainNodes(ctx context.Context, config supabase.ScrapingConfig) []*cdp.Node {
 	var terrainNodes []*cdp.Node
 	runChromeDP(ctx,
 		chromedp.WaitVisible(config.Terrain.TerrainSelector),
@@ -156,7 +158,7 @@ func getTerrainNodes(ctx context.Context, config Config) []*cdp.Node {
 	return terrainNodes
 }
 
-func getTerrainData(ctx context.Context, config Config) (runsOpen, liftsOpen int, err error) {
+func getTerrainData(ctx context.Context, config supabase.ScrapingConfig) (runsOpen, liftsOpen int, err error) {
 	// Handles cases where the site requires a click to load the terrain data
 	if config.ClickSelector != "" {
 		clickProvidedSelector(ctx, config)
@@ -195,8 +197,9 @@ func getTerrainData(ctx context.Context, config Config) (runsOpen, liftsOpen int
 	return runsOpen, liftsOpen, err
 }
 
-func ScrapeResortData(configPath *string) (map[string]interface{}, error) {
-	config := FetchConfig(configPath)
+func ScrapeResortData(mountainName *string) (map[string]interface{}, error) {
+	supabaseClient := supabase.NewSupabaseService()
+	config := supabaseClient.GetConfigByName(*mountainName)
 
 	resortConditions := map[string]interface{}{
 		"mountain_id":   config.ID,

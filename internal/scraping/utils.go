@@ -2,11 +2,7 @@ package scraping
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"io"
-	"log"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -14,24 +10,6 @@ import (
 	"github.com/chromedp/cdproto/cdp"
 	"github.com/chromedp/chromedp"
 )
-
-func FetchConfig(configPath *string) Config {
-	if *configPath == "" {
-		log.Fatal("Config path is required")
-	}
-	configFile, configErr := os.Open(*configPath)
-
-	if configErr != nil {
-		log.Fatal(configErr)
-	}
-
-	byteValue, _ := io.ReadAll(configFile)
-	var config Config
-	json.Unmarshal(byteValue, &config)
-
-	defer configFile.Close()
-	return config
-}
 
 func removeNonNumericCharacters(input string) (string, error) {
 	input = strings.Split(input, ".")[0]

@@ -120,6 +120,8 @@ github.com/stretchr/testify v1.6.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/
 github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.8.4 h1:CcVxjf3Q8PM0mHUKJCdn+eZZtm5yQwehR5yeSVQQcUk=
 github.com/stretchr/testify v1.8.4/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
+github.com/supabase-community/storage-go v0.7.0 h1:cJ8HLbbnL54H5rHPtHfiwtpRwcbDfA3in9HL/ucHnqA=
+github.com/supabase-community/storage-go v0.7.0/go.mod h1:oBKcJf5rcUXy3Uj9eS5wR6mvpwbmvkjOtAA+4tGcdvQ=
 github.com/supabase-community/supabase-go v0.0.1 h1:6uVRBc5o9mRSB0NB99iyXA8OUuvl5rXAm6PaxcVywYg=
 github.com/supabase-community/supabase-go v0.0.1/go.mod h1:lh+ysR7jJL8W7uC2k+L9KBDcK0If8Kcoi9x8ojs5HZ8=
 github.com/supabase/postgrest-go v0.0.7 h1:wkOzrndF/KliPEVHM84lNnET7ZFjAk1OPpAxz8hgzRs=
