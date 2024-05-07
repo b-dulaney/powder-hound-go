@@ -13,7 +13,7 @@ var h = hermes.Hermes{
 	Product: hermes.Product{
 		Name:      "The PowderHound team",
 		Link:      "https://powderhound.io",
-		Logo:      "https://powderhound-static-images.s3.us-east-2.amazonaws.com/logo-256px.png",
+		Logo:      "https://powderhound-static-images.s3.us-east-2.amazonaws.com/logo-256px.png?",
 		Copyright: "❤️ powderhound.io",
 	},
 }
