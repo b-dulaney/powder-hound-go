@@ -22,6 +22,7 @@ func main() {
 	})
 
 	mux := asynq.NewServeMux()
+	// To Do: Add task to handle non-resort scraping jobs
 	mux.HandleFunc(tasks.TypeResortWebScrapingJob, tasks.HandleResortWebScrapeTask)
 
 	if err := srv.Run(mux); err != nil {
