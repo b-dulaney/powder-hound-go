@@ -1,6 +1,6 @@
 ![Logo](https://powderhound-static-images.s3.us-east-2.amazonaws.com/logo-256px.png)
 
-# PowderHound-Go
+# PowderHound GO
 
 PowderHound-Go is a collection of backend services for PowderHound, primarily handling email delivery and web scraping jobs. These services are built using a distributed task architecture leveraging the Go [Asynq](https://github.com/hibiken/asynq) library.
 
