@@ -41,6 +41,7 @@ func InitializeEmailCronTasks(client *asynq.Client, supabase supabase.SupabaseCl
 
 func InitializeScrapingCronTasks(client *asynq.Client, supabase supabase.SupabaseClient) *cron.Cron {
 	ENV := os.Getenv("ENV")
+	log.Printf("ENV is %s", ENV)
 	loc, err := time.LoadLocation("America/Denver")
 	if err != nil {
 		log.Fatal(err)
@@ -72,7 +73,8 @@ func addProductionScrapingCronTasks(cron *cron.Cron, client *asynq.Client, supab
 }
 
 func addDevelopmentScrapingCronTasks(cron *cron.Cron, client *asynq.Client, supabase supabase.SupabaseClient) {
-	cron.AddFunc("@every 30s", func() {
+	queue.QueueResortWebScrapeTasks(client, supabase)
+	cron.AddFunc("@every 5m", func() {
 		queue.QueueResortWebScrapeTasks(client, supabase)
 	})
 }

@@ -3,6 +3,7 @@ package scraping
 import (
 	"context"
 	"errors"
+	"log"
 	"regexp"
 	"strconv"
 	"strings"
@@ -33,9 +34,21 @@ func removeDenominator(input string) (string, error) {
 }
 
 func convertStringToInt(input string) (int, error) {
+	// Handle special cases like "--" which should be treated as 0
+	trimmedInput := strings.TrimSpace(input)
+	if trimmedInput == "" || trimmedInput == "--" || trimmedInput == "—" {
+		return 0, nil
+	}
+
 	cleanedString, err := removeNonNumericCharacters(input)
+	log.Print(cleanedString)
 	if err != nil {
 		return 0, err
+	}
+
+	// If after removing non-numeric characters we have an empty string, treat as 0
+	if cleanedString == "" {
+		return 0, nil
 	}
 
 	result, err := strconv.Atoi(cleanedString)
@@ -47,6 +60,7 @@ func convertStringToInt(input string) (int, error) {
 }
 
 func runChromeDP(ctx context.Context, tasks ...chromedp.Action) error {
+	log.Printf("Running ChromeDP tasks: %v", tasks)
 	err := chromedp.Run(ctx, tasks...)
 	if err != nil {
 		return err
@@ -55,6 +69,7 @@ func runChromeDP(ctx context.Context, tasks ...chromedp.Action) error {
 }
 
 func getTextFromNode(ctx context.Context, selector string, node *cdp.Node, result *string) {
+	log.Printf("Getting text from node with selector: %s", selector)
 	if selector != "" {
 		runChromeDP(ctx, chromedp.Text(selector, result, chromedp.ByQuery, chromedp.FromNode(node)))
 	}

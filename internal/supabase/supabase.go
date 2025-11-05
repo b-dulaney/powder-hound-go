@@ -152,8 +152,9 @@ func (s *MockSupabaseService) InsertScrapingStatus(data ScrapingStatusData) erro
 
 func (s *MockSupabaseService) GetConfigByName(name string) ScrapingConfig {
 	fileName := fmt.Sprintf("%s.json", name)
-	log.Print(fileName)
-	result, err := s.storageClient.DownloadFile("scraping-config", fileName)
+	log.Printf("Fetching config for mountain: %s", name)
+	log.Printf("Fetching config by formatted file name: %s", fileName)
+	result, err := s.storageClient.DownloadFile("scraping-config-dev", fileName)
 
 	if err != nil {
 		log.Fatalf("Error fetching config by name: %v", err)
@@ -168,7 +169,7 @@ func (s *MockSupabaseService) GetConfigByName(name string) ScrapingConfig {
 }
 
 func (s *MockSupabaseService) GetAllMountainObjectNames() []string {
-	results, err := s.storageClient.ListFiles("scraping-config", "", storage_go.FileSearchOptions{
+	results, err := s.storageClient.ListFiles("scraping-config-dev", "", storage_go.FileSearchOptions{
 		Limit: 50,
 	})
 
@@ -177,9 +178,13 @@ func (s *MockSupabaseService) GetAllMountainObjectNames() []string {
 	}
 	var names []string
 	for _, result := range results {
+		log.Printf("Result: %v", result.Name)
 		trimmedName := strings.Split(result.Name, ".")[0]
 		log.Print(trimmedName)
-		names = append(names, trimmedName)
+		if trimmedName != "" {
+			names = append(names, trimmedName)
+
+		}
 	}
 
 	return names
