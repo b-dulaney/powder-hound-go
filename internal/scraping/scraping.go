@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"powderhoundgo/internal/supabase"
@@ -22,7 +23,7 @@ func clickProvidedSelector(ctx context.Context, config supabase.ScrapingConfig) 
 }
 
 func countLiftsAndRuns(ctx context.Context, config supabase.ScrapingConfig) (runsOpen, liftsOpen int, err error) {
-	tctx, cancel := context.WithTimeout(ctx, time.Second)
+	tctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
 	var openLifts, openRuns []*cdp.Node
@@ -83,16 +84,63 @@ func processTextAndConvertToInt(text string, propertyName string) (int, error) {
 
 func processConditions(ctx context.Context, config supabase.ScrapingConfig, conditionsNodes []*cdp.Node) (baseDepth, snow24, snow48 int, snow7Days, seasonTotal, snowpack string, err error) {
 	var baseDepthText, snow24Text, snow48Text string
+
+	// Wait for the elements to be visible first
 	if config.Conditions.WaitForSelector != "" {
-		runChromeDP(ctx, chromedp.WaitReady(config.Conditions.WaitForSelector))
+		runChromeDP(ctx, chromedp.WaitVisible(config.Conditions.WaitForSelector))
+	} else {
+		runChromeDP(ctx, chromedp.WaitVisible(config.Conditions.BaseDepthSelector))
 	}
+
 	log.Printf("Conditions nodes received, processing %d nodes", len(conditionsNodes))
+
+	// Wait for actual data to be hydrated with retries
+	// Check within the node context to match the extraction context
+	maxRetries := 10
+	retryDelay := 500 * time.Millisecond
+
 	for _, node := range conditionsNodes {
+		log.Printf("Waiting for data to be hydrated in base depth selector...")
+		dataFound := false
+
+		for i := 0; i < maxRetries; i++ {
+			var testText string
+			err := chromedp.Run(ctx,
+				chromedp.Text(config.Conditions.BaseDepthSelector, &testText, chromedp.ByQuery, chromedp.FromNode(node)),
+			)
+
+			trimmedText := strings.TrimSpace(testText)
+			// Check that the text contains at least one digit (actual data)
+			hasDigit := false
+			for _, char := range trimmedText {
+				if char >= '0' && char <= '9' {
+					hasDigit = true
+					break
+				}
+			}
+
+			if err == nil && hasDigit && trimmedText != "--" && trimmedText != "—" {
+				log.Printf("Data detected after %d attempts: '%s'", i+1, trimmedText)
+				dataFound = true
+				break
+			}
+
+			if i < maxRetries-1 {
+				log.Printf("Attempt %d: No numeric data yet (text: '%s'), retrying in %v...", i+1, trimmedText, retryDelay)
+				time.Sleep(retryDelay)
+			} else {
+				log.Printf("Warning: Max retries reached without finding numeric data, proceeding anyway")
+			}
+		}
+
+		if !dataFound {
+			log.Printf("Warning: Proceeding without confirmed data hydration")
+		}
+
 		getTextFromNode(ctx, config.Conditions.SnowpackSelector, node, &snowpack)
 		getTextFromNode(ctx, config.Conditions.SeasonTotalSelector, node, &seasonTotal)
 		getTextFromNode(ctx, config.Conditions.Snow7DaySelector, node, &snow7Days)
 		runChromeDP(ctx,
-			chromedp.WaitEnabled(config.Conditions.BaseDepthSelector),
 			chromedp.Text(config.Conditions.BaseDepthSelector, &baseDepthText, chromedp.ByQuery, chromedp.FromNode(node)),
 			chromedp.Text(config.Conditions.Snow24Selector, &snow24Text, chromedp.ByQuery, chromedp.FromNode(node)),
 			chromedp.Text(config.Conditions.Snow48Selector, &snow48Text, chromedp.ByQuery, chromedp.FromNode(node)),
@@ -123,7 +171,7 @@ func processConditions(ctx context.Context, config supabase.ScrapingConfig, cond
 
 func processTerrain(ctx context.Context, config supabase.ScrapingConfig, terrainNodes []*cdp.Node) (runsOpen, liftsOpen int, err error) {
 	var runsOpenText, liftsOpenText string
-	tctx, cancel := context.WithTimeout(ctx, time.Second)
+	tctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	for _, node := range terrainNodes {
 		err := runChromeDP(tctx,
