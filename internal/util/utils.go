@@ -70,12 +70,19 @@ func addProductionScrapingCronTasks(cron *cron.Cron, client *asynq.Client, supab
 	cron.AddFunc("*/10 5-6 * * *", func() {
 		queue.QueueResortWebScrapeTasks(client, supabase)
 	})
+
+	// 5pm - afternoon update check
+	cron.AddFunc("0 17 * * *", func() {
+		queue.QueueAvalancheScrapingTasks(client, supabase)
+	})
 }
 
 func addDevelopmentScrapingCronTasks(cron *cron.Cron, client *asynq.Client, supabase supabase.SupabaseClient) {
 	queue.QueueResortWebScrapeTasks(client, supabase)
+	queue.QueueAvalancheScrapingTasks(client, supabase)
 	cron.AddFunc("@every 5m", func() {
 		queue.QueueResortWebScrapeTasks(client, supabase)
+		queue.QueueAvalancheScrapingTasks(client, supabase)
 	})
 }
 

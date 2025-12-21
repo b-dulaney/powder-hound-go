@@ -111,6 +111,30 @@ func (s *SupabaseService) GetAllMountainObjectNames() []string {
 	return names
 }
 
+func (s *SupabaseService) UpsertAvalancheForecast(data map[string]interface{}) error {
+	_, _, err := s.client.From("avalanche_forecasts").Upsert(data, "mountain_id", "*", "estimated").Execute()
+	if err != nil {
+		log.Printf("Failed to upsert avalanche forecast: %s", err)
+	}
+	return err
+}
+
+func (s *SupabaseService) GetMountainsWithAvalancheForecasts() ([]MountainCoordinates, error) {
+	data, _, err := s.client.From("mountains").Select("mountain_id:id, lat, lon", "", false).Eq("location_type", "backcountry").Execute()
+	if err != nil {
+		log.Printf("Failed to get backcountry mountains: %s", err)
+		return nil, err
+	}
+
+	var mountains []MountainCoordinates
+	if err := json.Unmarshal(data, &mountains); err != nil {
+		log.Printf("Failed to unmarshal mountains: %s", err)
+		return nil, err
+	}
+
+	return mountains, nil
+}
+
 /** Mock Supabase Service Implementations **/
 func (s *MockSupabaseService) UpsertResortConditionsData(data map[string]interface{}) error {
 	log.Printf("Mock upsert data: %v", data)
@@ -188,4 +212,17 @@ func (s *MockSupabaseService) GetAllMountainObjectNames() []string {
 	}
 
 	return names
+}
+
+func (s *MockSupabaseService) UpsertAvalancheForecast(data map[string]interface{}) error {
+	log.Printf("Mock upsert avalanche forecast: %v", data)
+	return nil
+}
+
+func (s *MockSupabaseService) GetMountainsWithAvalancheForecasts() ([]MountainCoordinates, error) {
+	// Return mock data for development testing
+	return []MountainCoordinates{
+		{MountainID: 1, Lat: 39.6403, Lon: -105.8719}, // Loveland
+		{MountainID: 2, Lat: 39.4817, Lon: -106.0384}, // Breckenridge
+	}, nil
 }

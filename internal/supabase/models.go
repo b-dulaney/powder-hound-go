@@ -67,6 +67,13 @@ type ScrapingConfig struct {
 	Terrain       TerrainConfig    `json:"terrain"`
 }
 
+// MountainCoordinates represents a mountain's location for avalanche forecasting
+type MountainCoordinates struct {
+	MountainID int     `json:"mountain_id"`
+	Lat        float64 `json:"lat"`
+	Lon        float64 `json:"lon"`
+}
+
 type SupabaseClient interface {
 	UpsertResortConditionsData(data map[string]interface{}) error
 	GetUserOvernightAlerts() []UserOvernightAlert
@@ -74,6 +81,9 @@ type SupabaseClient interface {
 	InsertScrapingStatus(data ScrapingStatusData) error
 	GetConfigByName(name string) ScrapingConfig
 	GetAllMountainObjectNames() []string
+	// Avalanche forecast methods
+	UpsertAvalancheForecast(data map[string]interface{}) error
+	GetMountainsWithAvalancheForecasts() ([]MountainCoordinates, error)
 }
 
 type SupabaseService struct {

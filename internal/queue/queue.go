@@ -37,6 +37,34 @@ func QueueResortWebScrapeTasks(client *asynq.Client, supabase supabase.SupabaseC
 	}
 }
 
+func QueueAvalancheScrapingTasks(client *asynq.Client, supabaseClient supabase.SupabaseClient) {
+	mountains, err := supabaseClient.GetMountainsWithAvalancheForecasts()
+	if err != nil {
+		log.Printf("[*] Error getting mountains for avalanche scraping: %v", err)
+		return
+	}
+
+	for _, mountain := range mountains {
+		payload, err := json.Marshal(tasks.AvalancheScrapingPayload{
+			MountainID: mountain.MountainID,
+			Lat:        mountain.Lat,
+			Lon:        mountain.Lon,
+		})
+		if err != nil {
+			log.Printf("[*] Error marshalling avalanche payload: %v", err)
+			continue
+		}
+
+		task := buildTask(tasks.TypeAvalancheScrapingJob, payload)
+
+		info, err := client.Enqueue(task, asynq.MaxRetry(3), asynq.Timeout(5*time.Minute))
+		if err != nil {
+			log.Printf("[*] Error enqueuing avalanche task: %v", err)
+		}
+		log.Printf("[*] Enqueued avalanche task for mountain %d: %v", mountain.MountainID, info)
+	}
+}
+
 func QueueForecastAlertEmailTasks(client *asynq.Client, supabase supabase.SupabaseClient) {
 	userAlerts := supabase.GetUserForecastAlerts()
 
