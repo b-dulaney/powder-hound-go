@@ -72,7 +72,7 @@ func addProductionScrapingCronTasks(cron *cron.Cron, client *asynq.Client, supab
 	})
 
 	// 5pm - afternoon update check
-	cron.AddFunc("0 17 * * *", func() {
+	cron.AddFunc("@hourly", func() {
 		queue.QueueAvalancheScrapingTasks(client, supabase)
 	})
 }
