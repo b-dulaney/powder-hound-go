@@ -120,7 +120,7 @@ func (s *SupabaseService) UpsertAvalancheForecast(data map[string]interface{}) e
 }
 
 func (s *SupabaseService) GetMountainsWithAvalancheForecasts() ([]MountainCoordinates, error) {
-	data, _, err := s.client.From("mountains").Select("mountain_id:id, lat, lon", "", false).Eq("location_type", "backcountry").Execute()
+	data, _, err := s.client.From("mountains").Select("mountain_id, lat, lon", "", false).Eq("location_type", "backcountry").Execute()
 	if err != nil {
 		log.Printf("Failed to get backcountry mountains: %s", err)
 		return nil, err
