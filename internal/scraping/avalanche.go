@@ -12,25 +12,28 @@ import (
 
 // CSS Selectors for CAIC avalanche forecast page
 const (
-	// Container selector to wait for - indicates page has loaded
-	AvalancheContainerSelector = ".sm\\:pt-4"
+	// Wait for the ratings table inside the forecast tray — only appears once the forecast
+	// data for the given coordinates has loaded. The #tray-panel-forecast ID is stable.
+	AvalancheContainerSelector = `#tray-panel-forecast table`
 
-	// Summary selectors (relative to page)
-	AvalancheSummaryOneSelector = ".sm\\:pt-4 > p:nth-child(1)"
-	AvalancheSummaryTwoSelector = ".sm\\:pt-4 > p:nth-child(2)"
-	IssueDateSelector           = "span.whitespace-nowrap:nth-child(3)"
+	// Summary and issue date (inside the forecast tray)
+	AvalancheSummaryOneSelector = `#tray-panel-forecast div.text-base > p:nth-child(1)`
+	AvalancheSummaryTwoSelector = `#tray-panel-forecast div.text-base > p:nth-child(2)`
+	IssueDateSelector           = `p.text-sm:nth-child(1)`
 
-	// Day label selectors
-	DayOneSelector = "div.mt-4:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1)"
-	DayTwoSelector = "div.mt-4:nth-child(1) > div:nth-child(1) > div:nth-child(2) > div:nth-child(1) > div:nth-child(1)"
+	// Day labels come from the thead <th scope="col"> cells
+	DayOneSelector = `#tray-panel-forecast thead tr th:nth-of-type(1)`
+	DayTwoSelector = `#tray-panel-forecast thead tr th:nth-of-type(2)`
 
-	// Tree line selectors
-	AboveTreeLineDayOneSelector = "div.mt-4:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(2) > div:nth-child(1) > div:nth-child(2) > p:nth-child(1) > b:nth-child(1)"
-	AboveTreeLineDayTwoSelector = "div.mt-4:nth-child(1) > div:nth-child(1) > div:nth-child(2) > div:nth-child(2) > div:nth-child(1) > div:nth-child(1) > p:nth-child(1) > b:nth-child(1)"
-	NearTreeLineDayOneSelector  = "div.mt-4:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(2) > div:nth-child(2) > div:nth-child(2) > p:nth-child(1) > b:nth-child(1)"
-	NearTreeLineDayTwoSelector  = "div.mt-4:nth-child(1) > div:nth-child(1) > div:nth-child(2) > div:nth-child(2) > div:nth-child(2) > div:nth-child(1) > p:nth-child(1) > b:nth-child(1)"
-	BelowTreeLineDayOneSelector = "div.mt-4:nth-child(1) > div:nth-child(1) > div:nth-child(1) > div:nth-child(2) > div:nth-child(3) > div:nth-child(2) > p:nth-child(1) > b:nth-child(1)"
-	BelowTreeLineDayTwoSelector = "div.mt-4:nth-child(1) > div:nth-child(1) > div:nth-child(2) > div:nth-child(2) > div:nth-child(3) > div:nth-child(1) > p:nth-child(1) > b:nth-child(1)"
+	// Ratings live in a 3-row tbody: row 1=Above, row 2=Near, row 3=Below.
+	// Each row: th[scope=row] (label) | td (day 1) | td (day 2).
+	// td:nth-of-type skips the row-header th so index 1=day1, 2=day2.
+	AboveTreeLineDayOneSelector = `#tray-panel-forecast tbody tr:nth-child(1) td:nth-of-type(1) span.text-xs`
+	NearTreeLineDayOneSelector  = `#tray-panel-forecast tbody tr:nth-child(2) td:nth-of-type(1) span.text-xs`
+	BelowTreeLineDayOneSelector = `#tray-panel-forecast tbody tr:nth-child(3) td:nth-of-type(1) span.text-xs`
+	AboveTreeLineDayTwoSelector = `#tray-panel-forecast tbody tr:nth-child(1) td:nth-of-type(2) span.text-xs`
+	NearTreeLineDayTwoSelector  = `#tray-panel-forecast tbody tr:nth-child(2) td:nth-of-type(2) span.text-xs`
+	BelowTreeLineDayTwoSelector = `#tray-panel-forecast tbody tr:nth-child(3) td:nth-of-type(2) span.text-xs`
 )
 
 // MountainCoordinates represents a mountain's location for avalanche forecasting
@@ -65,7 +68,7 @@ type AvalancheForecast struct {
 	UpdatedAt          time.Time              `json:"updated_at"`
 }
 
-// parseTreeLineData parses the tree line text (e.g., "3-Considerable") into level and rating
+// parseTreeLineData parses the tree line text (e.g., "3 - Considerable") into level and rating
 func parseTreeLineData(text string) AvalancheRating {
 	text = strings.TrimSpace(text)
 	if text == "" {
@@ -86,6 +89,7 @@ func parseTreeLineData(text string) AvalancheRating {
 	if rating == "" {
 		rating = "No Rating"
 	}
+	rating = strings.TrimSpace(rating)
 
 	return AvalancheRating{Level: level, Rating: rating}
 }
@@ -115,7 +119,7 @@ func ScrapeAvalancheForecast(mountain MountainCoordinates) (*AvalancheForecast, 
 	var aboveTreeLineDayOneText, nearTreeLineDayOneText, belowTreeLineDayOneText string
 	var aboveTreeLineDayTwoText, nearTreeLineDayTwoText, belowTreeLineDayTwoText string
 
-	// Batch 1: Get summary and issue date
+	// Batch 1: summary and issue date
 	runChromeDP(ctx,
 		chromedp.InnerHTML(AvalancheSummaryOneSelector, &avalancheSummaryOne, chromedp.ByQuery),
 	)
@@ -128,20 +132,20 @@ func ScrapeAvalancheForecast(mountain MountainCoordinates) (*AvalancheForecast, 
 		chromedp.Text(IssueDateSelector, &issueDate, chromedp.ByQuery),
 	)
 
-	// Batch 2: Get day labels
+	// Batch 2: day labels
 	runChromeDP(ctx,
 		chromedp.Text(DayOneSelector, &dayOne, chromedp.ByQuery),
 		chromedp.Text(DayTwoSelector, &dayTwo, chromedp.ByQuery),
 	)
 
-	// Batch 3: Get tree line ratings for day one
+	// Batch 3: treeline ratings for day one
 	runChromeDP(ctx,
 		chromedp.Text(AboveTreeLineDayOneSelector, &aboveTreeLineDayOneText, chromedp.ByQuery),
 		chromedp.Text(NearTreeLineDayOneSelector, &nearTreeLineDayOneText, chromedp.ByQuery),
 		chromedp.Text(BelowTreeLineDayOneSelector, &belowTreeLineDayOneText, chromedp.ByQuery),
 	)
 
-	// Batch 4: Get tree line ratings for day two
+	// Batch 4: treeline ratings for day two
 	runChromeDP(ctx,
 		chromedp.Text(AboveTreeLineDayTwoSelector, &aboveTreeLineDayTwoText, chromedp.ByQuery),
 		chromedp.Text(NearTreeLineDayTwoSelector, &nearTreeLineDayTwoText, chromedp.ByQuery),
