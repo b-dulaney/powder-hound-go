@@ -54,6 +54,7 @@ func InitializeScrapingCronTasks(client *asynq.Client, supabase supabase.Supabas
 	} else {
 		addDevelopmentScrapingCronTasks(cron, client, supabase)
 	}
+	addMonitorCronTask(cron, client, ENV)
 
 	printCronEntries(cron.Entries())
 
@@ -84,6 +85,24 @@ func addDevelopmentScrapingCronTasks(cron *cron.Cron, client *asynq.Client, supa
 		queue.QueueResortWebScrapeTasks(client, supabase)
 		queue.QueueAvalancheScrapingTasks(client, supabase)
 	})
+}
+
+// addMonitorCronTask schedules the daily scraper health and resort status check.
+// MONITOR_SCHEDULE overrides the time (cron spec, America/Denver); "off" disables it.
+// Production defaults to 11:00, when lifts are running. Development only runs it when
+// MONITOR_SCHEDULE is set.
+func addMonitorCronTask(cron *cron.Cron, client *asynq.Client, env string) {
+	spec := os.Getenv("MONITOR_SCHEDULE")
+	if spec == "" && env == "production" {
+		spec = "0 11 * * *"
+	}
+	if spec == "" || spec == "off" {
+		log.Printf("Monitor cron disabled")
+		return
+	}
+	if _, err := cron.AddFunc(spec, func() { queue.QueueMonitorTask(client) }); err != nil {
+		log.Printf("Invalid MONITOR_SCHEDULE %q: %v", spec, err)
+	}
 }
 
 func addProductionEmailCronTasks(cron *cron.Cron, client *asynq.Client, supabase supabase.SupabaseClient) {

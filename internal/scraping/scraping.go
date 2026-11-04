@@ -257,7 +257,12 @@ func getTerrainData(ctx context.Context, config supabase.ScrapingConfig) (runsOp
 func ScrapeResortData(mountainName *string) (map[string]interface{}, error) {
 	supabaseClient := supabase.NewSupabaseService()
 	config := supabaseClient.GetConfigByName(*mountainName)
+	return ScrapeWithConfig(config)
+}
 
+// ScrapeWithConfig scrapes a resort with the given config instead of the stored one.
+// The monitor uses it to test a proposed config with exactly the production scrape path.
+func ScrapeWithConfig(config supabase.ScrapingConfig) (map[string]interface{}, error) {
 	resortConditions := map[string]interface{}{
 		"mountain_id":   config.ID,
 		"display_name":  config.Name,

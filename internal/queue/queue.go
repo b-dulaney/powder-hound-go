@@ -123,6 +123,18 @@ func QueueOvernightAlertEmailTasks(client *asynq.Client, supabase supabase.Supab
 	}
 }
 
+// QueueMonitorTask enqueues the daily scraper health and resort status check. Unique keeps
+// a slow run from overlapping the next one.
+func QueueMonitorTask(client *asynq.Client) {
+	task := buildTask(tasks.TypeMonitorDaily, nil)
+	info, err := client.Enqueue(task, asynq.MaxRetry(0), asynq.Timeout(90*time.Minute), asynq.Unique(12*time.Hour))
+	if err != nil {
+		log.Printf("[*] Error enqueuing monitor task: %v", err)
+		return
+	}
+	log.Printf("[*] Enqueued monitor task: %v", info)
+}
+
 func buildTask(taskType string, payload []byte) *asynq.Task {
 	var task *asynq.Task
 	ENV := os.Getenv("ENV")

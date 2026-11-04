@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"powderhoundgo/internal/email"
+	"powderhoundgo/internal/monitor"
 	"powderhoundgo/internal/scraping"
 	"powderhoundgo/internal/supabase"
 
@@ -116,4 +117,13 @@ func HandleForecastAlertEmailTask(c context.Context, t *asynq.Task) error {
 
 func HandleOvernightAlertEmailTask(c context.Context, t *asynq.Task) error {
 	return HandleAlertEmailTask(c, t, "PowderHound recent snowfall alert", email.BuildOvernightAlertEmail)
+}
+
+// HandleMonitorTask runs the daily scraper health and resort status check.
+func HandleMonitorTask(c context.Context, t *asynq.Task) error {
+	m, err := monitor.New()
+	if err != nil {
+		return fmt.Errorf("monitor setup: %w: %w", err, asynq.SkipRetry)
+	}
+	return m.Run(c)
 }

@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.22.1 as build-stage
+FROM golang:1.25.0 as build-stage
 WORKDIR /app
 COPY go.mod go.sum Makefile .env ./
 COPY config ./config/
