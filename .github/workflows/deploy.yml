@@ -1,36 +1,80 @@
 name: CI
 
-on: [push]
+# Deploys main to the droplet(s). Each deploy rewrites the server's .env from Actions secrets
+# (the Dockerfiles copy it into the images), so rotating a key = update the secret, re-run.
+#
+# Secrets: SSH_USER, SSH_KEY, SCRAPING_SERVICE_HOST, EMAIL_SERVICE_HOST,
+#          SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (prod sb_secret_ key), RESEND_API_KEY.
+on:
+  push:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
 
 jobs:
   deployEmailService:
     if: github.ref == 'refs/heads/main'
-    runs-on: [ubuntu-latest]
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - name: Check secrets
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: |
+          for v in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY RESEND_API_KEY; do
+            if [ -z "${!v}" ]; then echo "::error::Actions secret $v is not set"; exit 1; fi
+          done
       - name: Deploy Email Service
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
         with:
           host: ${{ secrets.EMAIL_SERVICE_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
+          envs: SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY,RESEND_API_KEY
           script: |
+            set -eu
             cd powder-hound-go
-            git pull
+            git pull --ff-only
+            umask 077
+            printf 'ENV=production\nSUPABASE_URL=%s\nSUPABASE_SERVICE_ROLE_KEY=%s\nRESEND_API_KEY=%s\n' \
+              "$SUPABASE_URL" "$SUPABASE_SERVICE_ROLE_KEY" "$RESEND_API_KEY" > .env.new
+            mv .env.new .env
             docker compose -f deployment/email-service/docker-compose.yml up --build -d
 
   deployScrapingService:
     if: github.ref == 'refs/heads/main'
-    runs-on: [ubuntu-latest]
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - name: Check secrets
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          for v in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY; do
+            if [ -z "${!v}" ]; then echo "::error::Actions secret $v is not set"; exit 1; fi
+          done
       - name: Deploy Scraping Service
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         with:
           host: ${{ secrets.SCRAPING_SERVICE_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
+          envs: SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY
           script: |
+            set -eu
             cd powder-hound-go
-            git pull
+            git pull --ff-only
+            umask 077
+            printf 'ENV=production\nSUPABASE_URL=%s\nSUPABASE_SERVICE_ROLE_KEY=%s\n' \
+              "$SUPABASE_URL" "$SUPABASE_SERVICE_ROLE_KEY" > .env.new
+            mv .env.new .env
             docker compose -f deployment/scraping-service/docker-compose.yml up --build -d
