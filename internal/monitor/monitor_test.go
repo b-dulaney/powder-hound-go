@@ -83,6 +83,26 @@ func TestDecide(t *testing.T) {
 			now:  nov, want: Decision{FixConfig: true, Reason: "scraped 147 lifts open but the resort has 9"},
 		},
 		{
+			name: "open trails with lifts at 0 after hours counts as operating",
+			o:    Observation{State: supabase.ResortState{Status: "unknown", StatusSource: "auto", RunsOpen: ptr(12), LiftsOpen: ptr(0)}, Scrape: &ScrapeResult{RunsOpen: 12, LiftsOpen: 0}},
+			now:  nov, want: Decision{AutoOpen: true},
+		},
+		{
+			name: "open resort with trails but no lifts needs no status read",
+			o:    Observation{State: supabase.ResortState{Status: "open", StatusSource: "auto", RunsOpen: ptr(30), LiftsOpen: ptr(0)}, Scrape: &ScrapeResult{RunsOpen: 30, LiftsOpen: 0}},
+			now:  nov, want: Decision{},
+		},
+		{
+			name: "more runs open than exist is a broken scrape and not evidence",
+			o:    Observation{State: supabase.ResortState{Status: "closed", StatusSource: "auto", RunsOpen: ptr(3), TotalRuns: ptr(147)}, Scrape: &ScrapeResult{RunsOpen: 9000}},
+			now:  nov, want: Decision{},
+		},
+		{
+			name: "impossible runs on a non-closed resort asks for a fix only",
+			o:    Observation{State: supabase.ResortState{Status: "unknown", StatusSource: "auto", RunsOpen: ptr(3), TotalRuns: ptr(147)}, Scrape: &ScrapeResult{RunsOpen: 9000}},
+			now:  nov, want: Decision{FixConfig: true, Reason: "scraped 9000 runs open but the resort has 147"},
+		},
+		{
 			name: "manual status still gets config fixes",
 			o:    Observation{State: supabase.ResortState{Status: "open", StatusSource: "manual"}, ScrapeErr: errors.New("boom")},
 			now:  nov, want: Decision{FixConfig: true, Reason: "scrape failed: boom"},
@@ -210,7 +230,7 @@ func (f *fakeClaude) ProposeConfig(_ context.Context, _ supabase.ScrapingConfig,
 	f.calls++
 	return p, nil
 }
-func (f *fakeClaude) ReadStatus(context.Context, string, *scraping.PageCapture, string, string) (*StatusReading, error) {
+func (f *fakeClaude) ReadStatus(context.Context, string, *scraping.PageCapture, string) (*StatusReading, error) {
 	f.calls++
 	return f.reading, nil
 }

@@ -89,7 +89,7 @@ Selector rules:
 
 Report in "expected" the values you read on the page for each field, and quote the page text for each in "evidence". These are checked against an actual scrape with your config, so read them carefully from the page, not from the config.`
 
-const statusSystemPrompt = `You check whether ski resorts are operating for Powder Hound, a ski conditions site. You are given a resort's snow report page (rendered text and a screenshot) and the scraper's latest lift counts. Decide the resort's operating status:
+const statusSystemPrompt = `You check whether ski resorts are operating for Powder Hound, a ski conditions site. You are given a resort's snow report page (rendered text and a screenshot) and the scraper's latest runs and lifts open. Many resorts report 0 lifts outside operating hours, so 0 lifts alone doesn't mean closed; open runs and the page's own status text matter more. Decide the resort's operating status:
 - "open": the resort is operating this season (open today, or in season with a temporary closure such as wind holds or a midweek closure).
 - "closed": closed for the season (not yet opened, or closed for the season after spring).
 - "unknown": the page doesn't say clearly.
@@ -132,9 +132,9 @@ func (c *Claude) ProposeConfig(ctx context.Context, current supabase.ScrapingCon
 }
 
 // ReadStatus asks Claude whether the resort on this page is operating.
-func (c *Claude) ReadStatus(ctx context.Context, resortName string, page *scraping.PageCapture, liftsOpen, totalLifts string) (*StatusReading, error) {
-	user := fmt.Sprintf("Resort: %s\nScraper's latest lift count: %s open of %s\nPage: %s\n\nRendered page text:\n<page_text>\n%s\n</page_text>",
-		resortName, liftsOpen, totalLifts, page.URL, page.VisibleText)
+func (c *Claude) ReadStatus(ctx context.Context, resortName string, page *scraping.PageCapture, terrain string) (*StatusReading, error) {
+	user := fmt.Sprintf("Resort: %s\nScraper's latest reading: %s\nPage: %s\n\nRendered page text:\n<page_text>\n%s\n</page_text>",
+		resortName, terrain, page.URL, page.VisibleText)
 	messages := []anthropic.BetaMessageParam{
 		anthropic.NewBetaUserMessage(
 			anthropic.NewBetaImageBlock(anthropic.BetaBase64ImageSourceParam{
