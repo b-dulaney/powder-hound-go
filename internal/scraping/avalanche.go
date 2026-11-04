@@ -202,6 +202,6 @@ func ScrapeAvalancheForecast(mountain MountainCoordinates) (*AvalancheForecast, 
 		UpdatedAt:          time.Now(),
 	}
 
-	log.Printf("Successfully scraped avalanche forecast for mountain %d", mountain.MountainID)
+	log.Printf("Successfully scraped CAIC avalanche forecast for mountain %d", mountain.MountainID)
 	return forecast, nil
 }
