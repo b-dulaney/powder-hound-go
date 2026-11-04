@@ -1,30 +1,42 @@
 package supabase
 
 import (
-	"os"
 	"testing"
 )
 
-func TestRealDatabaseService(t *testing.T) {
-	os.Setenv("ENV", "production")
-	os.Setenv("SUPABASE_URL", "https://example.com")
-	os.Setenv("SUPABASE_SERVICE_ROLE_KEY", "example_key")
-	// Assuming NewSupabaseService() returns a SupabaseService instance when ENV is set to "prod"
-	service := NewSupabaseService()
+func TestDefaultsToRealClient(t *testing.T) {
+	t.Setenv("ENV", "development")
+	t.Setenv("SUPABASE_MOCK", "")
+	t.Setenv("SUPABASE_URL", "https://devbranchref.supabase.co")
+	t.Setenv("SUPABASE_SERVICE_ROLE_KEY", "example_key")
 
-	_, ok := service.(*SupabaseService)
-	if !ok {
-		t.Errorf("Expected SupabaseService, got %T", service)
+	if _, ok := NewSupabaseService().(*SupabaseService); !ok {
+		t.Error("expected the real client when SUPABASE_MOCK is unset")
 	}
 }
 
-func TestMockSupabaseService(t *testing.T) {
-	os.Setenv("ENV", "development")
-	// Assuming NewSupabaseService() returns a MockSupabaseService instance when ENV is set to "mock"
-	service := NewSupabaseService()
+func TestMockWhenRequested(t *testing.T) {
+	t.Setenv("SUPABASE_MOCK", "true")
+	t.Setenv("SUPABASE_URL", "https://example.com")
+	t.Setenv("SUPABASE_SERVICE_ROLE_KEY", "example_key")
 
-	_, ok := service.(*MockSupabaseService)
-	if !ok {
-		t.Errorf("Expected MockSupabaseService, got %T", service)
+	if _, ok := NewSupabaseService().(*MockSupabaseService); !ok {
+		t.Error("expected the mock client when SUPABASE_MOCK=true")
+	}
+}
+
+func TestCheckTarget(t *testing.T) {
+	prod := "https://" + ProductionProjectRef + ".supabase.co"
+	if err := CheckTarget(prod, false); err == nil {
+		t.Error("a non-production run against production must be refused")
+	}
+	if err := CheckTarget(prod, true); err != nil {
+		t.Errorf("production run against production: %v", err)
+	}
+	if err := CheckTarget("https://devbranchref.supabase.co", false); err != nil {
+		t.Errorf("dev run against the dev branch: %v", err)
+	}
+	if err := CheckTarget("http://127.0.0.1:54321", false); err != nil {
+		t.Errorf("dev run against the local stack: %v", err)
 	}
 }

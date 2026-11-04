@@ -67,13 +67,14 @@ type Monitor struct {
 // New wires the monitor from the environment. Claude and GitHub are optional: without them
 // the check still applies lift-based status updates and logs everything else.
 func New() (*Monitor, error) {
-	store, err := supabase.NewMonitorStore()
+	env := envName()
+	store, err := supabase.NewMonitorStore(env == "prod")
 	if err != nil {
 		return nil, err
 	}
 	m := &Monitor{
 		Store:         store,
-		Env:           envName(),
+		Env:           env,
 		Scrape:        scraping.ScrapeWithConfig,
 		Capture:       scraping.CapturePage,
 		Proof:         scraping.CaptureProof,

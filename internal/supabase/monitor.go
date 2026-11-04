@@ -44,11 +44,15 @@ type MonitorStore struct {
 }
 
 // NewMonitorStore always talks to the real project in SUPABASE_URL (it is never mocked).
-func NewMonitorStore() (*MonitorStore, error) {
+// production must be true to connect to the production project.
+func NewMonitorStore(production bool) (*MonitorStore, error) {
 	url := os.Getenv("SUPABASE_URL")
 	key := os.Getenv("SUPABASE_SERVICE_ROLE_KEY")
 	if url == "" || key == "" {
 		return nil, fmt.Errorf("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set")
+	}
+	if err := CheckTarget(url, production); err != nil {
+		return nil, err
 	}
 	client, err := supabase.NewClient(url, key, nil)
 	if err != nil {

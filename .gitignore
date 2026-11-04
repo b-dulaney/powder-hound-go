@@ -19,3 +19,7 @@
 
 # Go workspace file
 go.work
+
+# Per-environment secrets (e.g. .env.dev); templates are committed
+.env.*
+!.env.*.example
