@@ -38,6 +38,8 @@ jobs:
           host: ${{ secrets.EMAIL_SERVICE_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
+          # Uncached Go builds on the droplets can take well over the 10m default.
+          command_timeout: 30m
           envs: SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY,RESEND_API_KEY
           script: |
             set -eu
@@ -78,6 +80,8 @@ jobs:
           host: ${{ secrets.SCRAPING_SERVICE_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
+          # Uncached Go builds on the droplets can take well over the 10m default.
+          command_timeout: 30m
           envs: SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY,ANTHROPIC_API_KEY,MONITOR_GITHUB_TOKEN
           script: |
             set -eu
