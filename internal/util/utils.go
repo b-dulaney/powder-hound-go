@@ -1,6 +1,8 @@
 package util
 
 import (
+	"errors"
+	"io/fs"
 	"log"
 	"os"
 	"powderhoundgo/internal/queue"
@@ -12,15 +14,21 @@ import (
 	"github.com/robfig/cron/v3"
 )
 
-// LoadEnvironmentVariables loads ENV_FILE, or ../.env by default (the path the Docker images
-// use). Point local runs at the dev branch with ENV_FILE=../.env.dev.
+// LoadEnvironmentVariables loads ENV_FILE, or ../.env by default. In Docker there is no file:
+// docker compose passes the server's .env to the container (env_file), so a missing default
+// file just means the environment is already set. Point local runs at the dev branch with
+// ENV_FILE=../.env.dev; an ENV_FILE that can't be loaded is fatal.
 func LoadEnvironmentVariables() {
-	file := os.Getenv("ENV_FILE")
+	file, explicit := os.Getenv("ENV_FILE"), true
 	if file == "" {
-		file = "../.env"
+		file, explicit = "../.env", false
 	}
 	if err := godotenv.Load(file); err != nil {
-		log.Fatalf("Error loading %s: %s", file, err)
+		if explicit || !errors.Is(err, fs.ErrNotExist) {
+			log.Fatalf("Error loading %s: %s", file, err)
+		}
+		log.Printf("No %s; using the process environment", file)
+		return
 	}
 	log.Printf("Loaded environment from %s", file)
 }

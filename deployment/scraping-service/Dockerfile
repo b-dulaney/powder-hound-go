@@ -1,7 +1,9 @@
+# Built by GitHub Actions and pushed to ghcr.io; secrets are passed at runtime (env_file),
+# never baked into the image.
 # Build stage
 FROM golang:1.25.0 as build-stage
 WORKDIR /app
-COPY go.mod go.sum Makefile .env ./
+COPY go.mod go.sum Makefile ./
 COPY config ./config/
 COPY cmd/scraping-service/worker ./worker/
 COPY cmd/scraping-service/client ./client/
@@ -23,7 +25,6 @@ WORKDIR /
 COPY --from=client-build-stage /client /client
 COPY --from=build-stage /app/config /config
 COPY --from=build-stage /app/internal /internal
-COPY --from=build-stage /app/.env /.env
 EXPOSE 8080
 ENTRYPOINT ["/client"]
 
@@ -34,6 +35,5 @@ WORKDIR /
 COPY --from=worker-build-stage /worker /worker
 COPY --from=build-stage /app/config /config
 COPY --from=build-stage /app/internal /internal
-COPY --from=build-stage /app/.env /.env
 EXPOSE 8081
 ENTRYPOINT ["/worker"]

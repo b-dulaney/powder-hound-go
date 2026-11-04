@@ -1,25 +1,23 @@
+# Images are built by GitHub Actions (.github/workflows/deploy.yml); the deploy sets IMAGE_TAG
+# to the commit SHA. The server's ../../.env is passed to the containers at runtime.
 version: "3"
 services:
   client:
-    build:
-      context: ../../
-      dockerfile: deployment/scraping-service/Dockerfile
-      target: client-release-stage
+    image: ghcr.io/b-dulaney/powder-hound-go/scraping-client:${IMAGE_TAG:-latest}
     restart: unless-stopped
     command: ["make", "client"]
     depends_on:
       - redis
+    env_file: ../../.env
     environment:
       - REDIS_HOST=redis
   worker:
-    build:
-      context: ../../
-      dockerfile: deployment/scraping-service/Dockerfile
-      target: worker-release-stage
+    image: ghcr.io/b-dulaney/powder-hound-go/scraping-worker:${IMAGE_TAG:-latest}
     restart: unless-stopped
     command: ["make", "worker"]
     depends_on:
       - redis
+    env_file: ../../.env
     environment:
       - REDIS_HOST=redis
   asynqmon:

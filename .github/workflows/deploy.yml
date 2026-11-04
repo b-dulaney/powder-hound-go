@@ -1,12 +1,18 @@
 name: CI
 
-# Deploys main to the droplet(s). Each deploy rewrites the server's .env from Actions secrets
-# (the Dockerfiles copy it into the images), so rotating a key = update the secret, re-run.
+# Every push builds the four service images on GitHub's runners (catching build errors on any
+# branch). On main they're pushed to ghcr.io and each droplet pulls its pair and restarts:
+# nothing is compiled on the droplets.
+#
+# Each deploy also rewrites the server's .env from Actions secrets; docker compose passes it to
+# the containers at runtime (it is never baked into an image), so rotating a key = update the
+# secret, re-run the deploy.
 #
 # Secrets: SSH_USER, SSH_KEY, SCRAPING_SERVICE_HOST, EMAIL_SERVICE_HOST,
 #          SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (prod sb_secret_ key), RESEND_API_KEY,
 #          ANTHROPIC_API_KEY and MONITOR_GITHUB_TOKEN (scraper monitor; GitHub reserves the
 #          GITHUB_ prefix for secret names, so it's written to .env as GITHUB_TOKEN).
+# The droplets log in to ghcr.io with this run's short-lived GITHUB_TOKEN; no setup needed.
 on:
   push:
   workflow_dispatch:
@@ -14,10 +20,51 @@ on:
 concurrency:
   group: deploy-${{ github.ref }}
 
+env:
+  IMAGE_PREFIX: ghcr.io/b-dulaney/powder-hound-go
+
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        include:
+          - { service: scraping-service, image: scraping, target: client }
+          - { service: scraping-service, image: scraping, target: worker }
+          - { service: email-service, image: email, target: client }
+          - { service: email-service, image: email, target: worker }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Log in to ghcr.io
+        if: github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build ${{ matrix.image }}-${{ matrix.target }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deployment/${{ matrix.service }}/Dockerfile
+          target: ${{ matrix.target }}-release-stage
+          push: ${{ github.ref == 'refs/heads/main' }}
+          tags: |
+            ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}-${{ matrix.target }}:${{ github.sha }}
+            ${{ env.IMAGE_PREFIX }}/${{ matrix.image }}-${{ matrix.target }}:latest
+          cache-from: type=gha,scope=${{ matrix.image }}-${{ matrix.target }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}-${{ matrix.target }}
+
   deployEmailService:
     if: github.ref == 'refs/heads/main'
+    needs: build
     runs-on: ubuntu-latest
+    permissions:
+      packages: read
     steps:
       - name: Check secrets
         env:
@@ -34,13 +81,15 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          IMAGE_TAG: ${{ github.sha }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           host: ${{ secrets.EMAIL_SERVICE_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
-          # Uncached Go builds on the droplets can take well over the 10m default.
-          command_timeout: 30m
-          envs: SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY,RESEND_API_KEY
+          command_timeout: 15m
+          envs: SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY,RESEND_API_KEY,IMAGE_TAG,GHCR_USER,GHCR_TOKEN
           script: |
             set -eu
             cd powder-hound-go
@@ -49,11 +98,19 @@ jobs:
             printf 'ENV=production\nSUPABASE_URL=%s\nSUPABASE_SERVICE_ROLE_KEY=%s\nRESEND_API_KEY=%s\n' \
               "$SUPABASE_URL" "$SUPABASE_SERVICE_ROLE_KEY" "$RESEND_API_KEY" > .env.new
             mv .env.new .env
-            docker compose -f deployment/email-service/docker-compose.yml up --build -d
+            compose="docker compose -f deployment/email-service/docker-compose.yml"
+            printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+            IMAGE_TAG="$IMAGE_TAG" $compose pull client worker || { docker logout ghcr.io; exit 1; }
+            docker logout ghcr.io
+            IMAGE_TAG="$IMAGE_TAG" $compose up -d --remove-orphans
+            docker image prune -af --filter "until=24h"
 
   deployScrapingService:
     if: github.ref == 'refs/heads/main'
+    needs: build
     runs-on: ubuntu-latest
+    permissions:
+      packages: read
     steps:
       - name: Check secrets
         env:
@@ -76,13 +133,15 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           MONITOR_GITHUB_TOKEN: ${{ secrets.MONITOR_GITHUB_TOKEN }}
+          IMAGE_TAG: ${{ github.sha }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           host: ${{ secrets.SCRAPING_SERVICE_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
-          # Uncached Go builds on the droplets can take well over the 10m default.
-          command_timeout: 30m
-          envs: SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY,ANTHROPIC_API_KEY,MONITOR_GITHUB_TOKEN
+          command_timeout: 15m
+          envs: SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY,ANTHROPIC_API_KEY,MONITOR_GITHUB_TOKEN,IMAGE_TAG,GHCR_USER,GHCR_TOKEN
           script: |
             set -eu
             cd powder-hound-go
@@ -95,4 +154,9 @@ jobs:
               printf 'GITHUB_REPO=b-dulaney/powder-hound\nGITHUB_BASE_BRANCH=master\n'
             } > .env.new
             mv .env.new .env
-            docker compose -f deployment/scraping-service/docker-compose.yml up --build -d
+            compose="docker compose -f deployment/scraping-service/docker-compose.yml"
+            printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+            IMAGE_TAG="$IMAGE_TAG" $compose pull client worker || { docker logout ghcr.io; exit 1; }
+            docker logout ghcr.io
+            IMAGE_TAG="$IMAGE_TAG" $compose up -d --remove-orphans
+            docker image prune -af --filter "until=24h"
