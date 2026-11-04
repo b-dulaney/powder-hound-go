@@ -8,10 +8,11 @@ import (
 )
 
 const (
-	TypeResortWebScrapingJob    = "scrape:resort"
-	TypeAvalancheScrapingJob    = "scrape:avalanche"
-	TypeForecastAlertEmail      = "email:forecast"
-	TypeOvernightEmail          = "email:overnight"
+	TypeResortWebScrapingJob = "scrape:resort"
+	TypeAvalancheScrapingJob = "scrape:avalanche"
+	TypeForecastAlertEmail   = "email:forecast"
+	TypeOvernightEmail       = "email:overnight"
+	TypeMonitorDaily         = "monitor:daily"
 )
 
 func NewResortWebScrapeTask(name string) (*asynq.Task, error) {

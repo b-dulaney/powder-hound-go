@@ -24,6 +24,7 @@ func main() {
 	mux := asynq.NewServeMux()
 	mux.HandleFunc(tasks.TypeResortWebScrapingJob, tasks.HandleResortWebScrapeTask)
 	mux.HandleFunc(tasks.TypeAvalancheScrapingJob, tasks.HandleAvalancheScrapingTask)
+	mux.HandleFunc(tasks.TypeMonitorDaily, tasks.HandleMonitorTask)
 
 	if err := srv.Run(mux); err != nil {
 		log.Fatal(err)
