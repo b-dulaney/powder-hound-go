@@ -381,7 +381,9 @@ func (m *Monitor) readStatus(ctx context.Context, o Observation) error {
 		}
 		return nil
 	}
-	if r.Confidence == "low" || strings.TrimSpace(r.Quote) == "" {
+	// Only propose changes the page states outright. Medium readings tend to rest on indirect
+	// hints ("Early Season", pass sale banners); they're re-read when the page's status text changes.
+	if r.Confidence != "high" || strings.TrimSpace(r.Quote) == "" {
 		log.Printf("[monitor] %s: not proposing %s (confidence %s, quote %q)", o.Slug, r.Status, r.Confidence, r.Quote)
 		return nil
 	}

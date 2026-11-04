@@ -489,3 +489,24 @@ func TestRunSkipsStatusReadWhilePageUnchanged(t *testing.T) {
 	now = now.Add(rereadAfter)
 	run("unchanged for a week", 3)
 }
+
+func TestRunDoesNotProposeMediumConfidenceReadings(t *testing.T) {
+	store := abasinStore("unknown", 0)
+	repo := &fakeRepo{}
+	claude := &fakeClaude{reading: &StatusReading{Status: "closed", Confidence: "medium", Quote: "Early Season"}}
+	m := newTestMonitor(store, claude, repo, func(supabase.ScrapingConfig) (map[string]interface{}, error) {
+		return map[string]interface{}{"base_depth": 0, "lifts_open": 0, "runs_open": 0}, nil
+	})
+	if err := m.Run(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if claude.calls != 1 {
+		t.Fatalf("expected one read, got %d", claude.calls)
+	}
+	if len(repo.created) != 0 || len(store.updates) != 0 {
+		t.Errorf("medium confidence must not propose or change status: issues=%d updates=%+v", len(repo.created), store.updates)
+	}
+	if store.reads[5] == nil {
+		t.Error("the read should still be recorded so an unchanged page isn't re-read")
+	}
+}
