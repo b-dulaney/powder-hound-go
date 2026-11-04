@@ -215,6 +215,7 @@ func (f *fakeStore) SetResortStatus(u supabase.StatusUpdate) (bool, error) {
 	f.updates = append(f.updates, u)
 	return true, nil
 }
+func (f *fakeStore) RecordJobRun(string, error)                         {}
 func (f *fakeStore) GetStatusRead(id int) (*supabase.StatusRead, error) { return f.reads[id], nil }
 func (f *fakeStore) RecordStatusRead(id int, fp string, at time.Time) error {
 	if f.reads == nil {

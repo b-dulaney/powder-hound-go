@@ -24,8 +24,10 @@ services:
     image: hibiken/asynqmon:latest
     environment:
       - REDIS_ADDR=redis:6379
+    # Localhost only: asynqmon has no login and can delete or queue tasks. Reach it with
+    # ssh -L 8080:localhost:8080 <user>@<droplet>, then open http://localhost:8080.
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     depends_on:
       - redis
   redis:

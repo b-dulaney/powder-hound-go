@@ -30,6 +30,7 @@ type Store interface {
 	SetResortStatus(u supabase.StatusUpdate) (bool, error)
 	UploadEvidence(path string, data []byte, contentType string) (string, error)
 	GetStatusRead(mountainID int) (*supabase.StatusRead, error)
+	RecordJobRun(job string, runErr error)
 	RecordStatusRead(mountainID int, fingerprint string, at time.Time) error
 }
 

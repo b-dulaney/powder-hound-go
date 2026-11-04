@@ -69,28 +69,44 @@ func (s *SupabaseService) InsertScrapingStatus(data ScrapingStatusData) error {
 	return err
 }
 
-func (s *SupabaseService) GetUserOvernightAlerts() []UserOvernightAlert {
-	userAlertsResponse := s.client.Rpc("group_overnight_snowfall_alert_data", "", nil)
-
+// GetUserOvernightAlerts returns an error instead of exiting when the RPC fails (it used to
+// log.Fatal on an error response, taking the email client down).
+func (s *SupabaseService) GetUserOvernightAlerts() ([]UserOvernightAlert, error) {
 	var userAlerts []UserOvernightAlert
-	err := json.Unmarshal([]byte(userAlertsResponse), &userAlerts)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return userAlerts
+	err := rpcInto(s.client, "group_overnight_snowfall_alert_data", &userAlerts)
+	return userAlerts, err
 }
 
-func (s *SupabaseService) GetUserForecastAlerts() []UserForecastAlert {
-	userAlertsResponse := s.client.Rpc("group_24h_forecast_alert_data", "", nil)
-
+func (s *SupabaseService) GetUserForecastAlerts() ([]UserForecastAlert, error) {
 	var userAlerts []UserForecastAlert
-	err := json.Unmarshal([]byte(userAlertsResponse), &userAlerts)
-	if err != nil {
-		log.Fatal(err)
-	}
+	err := rpcInto(s.client, "group_24h_forecast_alert_data", &userAlerts)
+	return userAlerts, err
+}
 
-	return userAlerts
+// rpcInto calls a no-argument RPC and decodes its JSON result. supabase-go returns error
+// responses as the body, so a body that doesn't decode is reported with its text.
+func rpcInto(client *supabase.Client, fn string, out any) error {
+	body := client.Rpc(fn, "", nil)
+	if err := json.Unmarshal([]byte(body), out); err != nil {
+		return fmt.Errorf("%s: unexpected response %q", fn, truncateForError(body))
+	}
+	return nil
+}
+
+func (s *SupabaseService) RecordJobRun(job string, runErr error) {
+	recordJobRun(s.client, job, runErr)
+}
+
+// recordJobRun calls public.record_job_run. It returns no body on success; anything else is
+// an error response, which is logged.
+func recordJobRun(client *supabase.Client, job string, runErr error) {
+	params := map[string]any{"p_job": job}
+	if runErr != nil {
+		params["p_error"] = runErr.Error()
+	}
+	if body := strings.TrimSpace(client.Rpc("record_job_run", "", params)); body != "" && body != "null" {
+		log.Printf("record_job_run %s: unexpected response %q", job, truncateForError(body))
+	}
 }
 
 func (s *SupabaseService) GetConfigByName(name string) ScrapingConfig {
@@ -158,7 +174,11 @@ func (s *MockSupabaseService) UpsertResortConditionsData(data map[string]interfa
 	return nil
 }
 
-func (s *MockSupabaseService) GetUserOvernightAlerts() []UserOvernightAlert {
+func (s *MockSupabaseService) RecordJobRun(job string, runErr error) {
+	log.Printf("Mock record job run %s: err=%v", job, runErr)
+}
+
+func (s *MockSupabaseService) GetUserOvernightAlerts() ([]UserOvernightAlert, error) {
 	return []UserOvernightAlert{
 		{
 			Email: "test@powderhound.io",
@@ -169,10 +189,10 @@ func (s *MockSupabaseService) GetUserOvernightAlerts() []UserOvernightAlert {
 				},
 			},
 		},
-	}
+	}, nil
 }
 
-func (s *MockSupabaseService) GetUserForecastAlerts() []UserForecastAlert {
+func (s *MockSupabaseService) GetUserForecastAlerts() ([]UserForecastAlert, error) {
 	return []UserForecastAlert{
 		{
 			Email: "test@powderhound.io",
@@ -183,7 +203,7 @@ func (s *MockSupabaseService) GetUserForecastAlerts() []UserForecastAlert {
 				},
 			},
 		},
-	}
+	}, nil
 }
 
 func (s *MockSupabaseService) InsertScrapingStatus(data ScrapingStatusData) error {
