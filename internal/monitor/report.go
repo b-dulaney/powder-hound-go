@@ -112,11 +112,11 @@ func statusIssueBody(o Observation, r *StatusReading, proposal StatusProposal, p
 	fmt.Fprintf(&b, "The daily status check thinks **%s** is now **%s** (currently `%s`).\n\n", o.Config.Name, r.Status, o.State.Status)
 	fmt.Fprintf(&b, "**Evidence** from %s:\n\n%s\n\n", pageURL, quoteBlock(r.Quote))
 	fmt.Fprintf(&b, "**Reasoning:** %s (confidence: %s)\n\n", r.Reasoning, r.Confidence)
-	lifts := "scrape failed"
+	now := "scrape failed"
 	if o.Scrape != nil {
-		lifts = fmt.Sprintf("%d open", o.Scrape.LiftsOpen)
+		now = fmt.Sprintf("%d runs / %d lifts open", o.Scrape.RunsOpen, o.Scrape.LiftsOpen)
 	}
-	fmt.Fprintf(&b, "**Lift data:** %s now; %d at the last hourly scrape.\n\n", lifts, intValue(o.State.LiftsOpen))
+	fmt.Fprintf(&b, "**Terrain data:** %s now; %d runs / %d lifts at the last hourly scrape.\n\n", now, intValue(o.State.RunsOpen), intValue(o.State.LiftsOpen))
 	if r.ExpectedOpenDate != "" || r.ExpectedCloseDate != "" {
 		fmt.Fprintf(&b, "**Announced dates:** opening %s, closing %s\n\n", orDash(r.ExpectedOpenDate), orDash(r.ExpectedCloseDate))
 	}

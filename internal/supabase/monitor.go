@@ -19,6 +19,7 @@ type ResortState struct {
 	LiftsOpen    *int       `json:"lifts_open"`
 	TotalLifts   *int       `json:"total_lifts"`
 	RunsOpen     *int       `json:"runs_open"`
+	TotalRuns    *int       `json:"total_runs"`
 	UpdatedAt    *time.Time `json:"updated_at"`
 	Status       string     `json:"status"`
 	StatusSource string     `json:"status_source"`
@@ -67,7 +68,7 @@ func NewMonitorStore(production bool) (*MonitorStore, error) {
 
 func (s *MonitorStore) GetResortStates() (map[int]ResortState, error) {
 	data, _, err := s.client.From("resort_conditions").
-		Select("mountain_id,display_name,lifts_open,total_lifts,runs_open,updated_at,status,status_source", "", false).
+		Select("mountain_id,display_name,lifts_open,total_lifts,runs_open,total_runs,updated_at,status,status_source", "", false).
 		Execute()
 	if err != nil {
 		return nil, fmt.Errorf("read resort_conditions: %w", err)

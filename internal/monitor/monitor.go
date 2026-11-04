@@ -32,7 +32,7 @@ type Store interface {
 
 type ModelClient interface {
 	ProposeConfig(ctx context.Context, current supabase.ScrapingConfig, page *scraping.PageCapture, scrapeErr string, previous *ConfigProposal, feedback string) (*ConfigProposal, error)
-	ReadStatus(ctx context.Context, resortName string, page *scraping.PageCapture, liftsOpen, totalLifts string) (*StatusReading, error)
+	ReadStatus(ctx context.Context, resortName string, page *scraping.PageCapture, terrain string) (*StatusReading, error)
 }
 
 type Repo interface {
@@ -153,11 +153,16 @@ func (m *Monitor) checkResort(ctx context.Context, slug string, states map[int]s
 	}
 
 	d := decide(o, m.Now())
-	log.Printf("[monitor] %s: status=%s/%s scrapeErr=%v decision=%+v", slug, state.Status, state.StatusSource, o.ScrapeErr, d)
+	scraped := "scrape failed"
+	if o.Scrape != nil {
+		scraped = fmt.Sprintf("runs=%d lifts=%d", o.Scrape.RunsOpen, o.Scrape.LiftsOpen)
+	}
+	log.Printf("[monitor] %s: status=%s/%s now(%s) hourly(runs=%d lifts=%d) scrapeErr=%v decision=%+v",
+		slug, state.Status, state.StatusSource, scraped, intValue(state.RunsOpen), intValue(state.LiftsOpen), o.ScrapeErr, d)
 
 	if d.AutoOpen {
-		evidence := fmt.Sprintf("%d lifts open at %s; %d at the previous hourly scrape",
-			o.Scrape.LiftsOpen, m.Now().Format(time.RFC3339), intValue(state.LiftsOpen))
+		evidence := fmt.Sprintf("%d runs / %d lifts open at %s; %d runs / %d lifts at the previous hourly scrape",
+			o.Scrape.RunsOpen, o.Scrape.LiftsOpen, m.Now().Format(time.RFC3339), intValue(state.RunsOpen), intValue(state.LiftsOpen))
 		changed, err := m.Store.SetResortStatus(supabase.StatusUpdate{
 			MountainID: cfg.ID, Status: "open", Source: "auto", Evidence: evidence,
 		})
@@ -331,15 +336,12 @@ func (m *Monitor) readStatus(ctx context.Context, o Observation) error {
 	if err != nil {
 		return err
 	}
-	lifts := "unknown (scrape failed)"
+	terrain := "unknown (scrape failed)"
 	if o.Scrape != nil {
-		lifts = strconv.Itoa(o.Scrape.LiftsOpen)
+		terrain = fmt.Sprintf("%d of %s runs open, %d of %s lifts open",
+			o.Scrape.RunsOpen, totalOrUnknown(o.State.TotalRuns), o.Scrape.LiftsOpen, totalOrUnknown(o.State.TotalLifts))
 	}
-	total := "unknown"
-	if o.State.TotalLifts != nil {
-		total = strconv.Itoa(*o.State.TotalLifts)
-	}
-	r, err := m.Claude.ReadStatus(ctx, o.Config.Name, page, lifts, total)
+	r, err := m.Claude.ReadStatus(ctx, o.Config.Name, page, terrain)
 	if err != nil {
 		return err
 	}
@@ -390,4 +392,11 @@ func (m *Monitor) readStatus(ctx context.Context, o Observation) error {
 	}
 	log.Printf("[monitor] %s: opened %s", o.Slug, issue.HTMLURL)
 	return nil
+}
+
+func totalOrUnknown(total *int) string {
+	if total == nil {
+		return "?"
+	}
+	return strconv.Itoa(*total)
 }
