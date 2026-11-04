@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"os"
 	"os/signal"
 	"powderhoundgo/internal/supabase"
@@ -12,6 +13,12 @@ import (
 
 func main() {
 	util.LoadEnvironmentVariables()
+	// Outside production the email schedule runs every minute, so never read real alerts
+	// (and email real users) from the database; the mock returns a test recipient.
+	if os.Getenv("ENV") != "production" {
+		os.Setenv("SUPABASE_MOCK", "true")
+		log.Printf("Email service: using the mock Supabase client (ENV=%q)", os.Getenv("ENV"))
+	}
 	supabase := supabase.NewSupabaseService()
 
 	redisHost := os.Getenv("REDIS_HOST")
