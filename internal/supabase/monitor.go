@@ -157,3 +157,38 @@ func truncateForError(s string) string {
 	}
 	return s
 }
+
+// StatusRead is the monitor's last Claude status read for a resort (public.resort_status_reads).
+type StatusRead struct {
+	MountainID      int       `json:"mountain_id"`
+	PageFingerprint string    `json:"page_fingerprint"`
+	ReadAt          time.Time `json:"read_at"`
+}
+
+// GetStatusRead returns the last status read for a resort, or nil if there is none.
+func (s *MonitorStore) GetStatusRead(mountainID int) (*StatusRead, error) {
+	data, _, err := s.client.From("resort_status_reads").
+		Select("mountain_id,page_fingerprint,read_at", "", false).
+		Eq("mountain_id", fmt.Sprint(mountainID)).
+		Execute()
+	if err != nil {
+		return nil, fmt.Errorf("read resort_status_reads: %w", err)
+	}
+	var rows []StatusRead
+	if err := json.Unmarshal(data, &rows); err != nil {
+		return nil, fmt.Errorf("decode resort_status_reads: %w", err)
+	}
+	if len(rows) == 0 {
+		return nil, nil
+	}
+	return &rows[0], nil
+}
+
+// RecordStatusRead stores the fingerprint of the page Claude just read.
+func (s *MonitorStore) RecordStatusRead(mountainID int, fingerprint string, at time.Time) error {
+	row := map[string]any{"mountain_id": mountainID, "page_fingerprint": fingerprint, "read_at": at.UTC().Format(time.RFC3339)}
+	if _, _, err := s.client.From("resort_status_reads").Upsert(row, "mountain_id", "minimal", "").Execute(); err != nil {
+		return fmt.Errorf("write resort_status_reads: %w", err)
+	}
+	return nil
+}

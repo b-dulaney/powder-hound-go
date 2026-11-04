@@ -1,8 +1,9 @@
 // Package monitor runs the daily scraper health and resort status check.
 //
 // For each resort it scrapes with the stored config, then:
-//   - marks the resort open automatically when two independent scrapes saw lifts running;
-//   - otherwise asks Claude to read the page, and opens a GitHub issue proposing the status
+//   - marks the resort open automatically when two independent scrapes saw runs or lifts open;
+//   - otherwise asks Claude to read the page (skipped while the page's status text is unchanged
+//     since the last read, up to a week), and opens a GitHub issue proposing the status
 //     change when Claude disagrees with the database (approved by commenting /approve);
 //   - when the scrape is broken, asks Claude for a corrected config, verifies it by scraping
 //     with it, and opens a PR with the proof, or an issue if no verified fix was found.
@@ -28,7 +29,13 @@ type Store interface {
 	GetResortStates() (map[int]supabase.ResortState, error)
 	SetResortStatus(u supabase.StatusUpdate) (bool, error)
 	UploadEvidence(path string, data []byte, contentType string) (string, error)
+	GetStatusRead(mountainID int) (*supabase.StatusRead, error)
+	RecordStatusRead(mountainID int, fingerprint string, at time.Time) error
 }
+
+// rereadAfter forces a status read even when the page's status text hasn't changed, in case
+// the fingerprint misses a change (or Claude's earlier answer was wrong).
+const rereadAfter = 7 * 24 * time.Hour
 
 type ModelClient interface {
 	ProposeConfig(ctx context.Context, current supabase.ScrapingConfig, page *scraping.PageCapture, scrapeErr string, previous *ConfigProposal, feedback string) (*ConfigProposal, error)
@@ -329,12 +336,22 @@ func (m *Monitor) readStatus(ctx context.Context, o Observation) error {
 			return nil
 		}
 	}
-	if !m.takeModelCall() {
-		return fmt.Errorf("skipped: Claude unavailable or the per-run call budget is used up")
+	if m.Claude == nil {
+		return fmt.Errorf("skipped: Claude unavailable")
 	}
 	page, err := m.Capture(o.Config.ConditionsURL, o.Config.ClickSelector)
 	if err != nil {
 		return err
+	}
+	fingerprint := pageFingerprint(page.VisibleText)
+	if last, err := m.Store.GetStatusRead(o.Config.ID); err != nil {
+		log.Printf("[monitor] %s: can't load the last status read, reading anyway: %v", o.Slug, err)
+	} else if last != nil && last.PageFingerprint == fingerprint && m.Now().Sub(last.ReadAt) < rereadAfter {
+		log.Printf("[monitor] %s: status text unchanged since %s, skipping the read", o.Slug, last.ReadAt.Format(time.RFC3339))
+		return nil
+	}
+	if !m.takeModelCall() {
+		return fmt.Errorf("skipped: the per-run call budget is used up")
 	}
 	terrain := "unknown (scrape failed)"
 	if o.Scrape != nil {
@@ -346,6 +363,11 @@ func (m *Monitor) readStatus(ctx context.Context, o Observation) error {
 		return err
 	}
 	log.Printf("[monitor] %s: Claude reads status=%s confidence=%s quote=%q", o.Slug, r.Status, r.Confidence, r.Quote)
+	// Remember what was read whatever the outcome: an unchanged page gets the same answer, and
+	// a proposal that was rejected (issue closed without /approve) isn't re-raised daily.
+	if err := m.Store.RecordStatusRead(o.Config.ID, fingerprint, m.Now()); err != nil {
+		log.Printf("[monitor] %s: %v", o.Slug, err)
+	}
 
 	if r.Status == o.State.Status || r.Status == "unknown" {
 		// No status change. Record newly announced dates; they only affect display.

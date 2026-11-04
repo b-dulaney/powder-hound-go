@@ -197,6 +197,7 @@ type fakeStore struct {
 	states   map[int]supabase.ResortState
 	updates  []supabase.StatusUpdate
 	uploaded []string
+	reads    map[int]*supabase.StatusRead
 }
 
 func (f *fakeStore) ListConfigSlugs() ([]string, error) {
@@ -213,6 +214,14 @@ func (f *fakeStore) GetResortStates() (map[int]supabase.ResortState, error) { re
 func (f *fakeStore) SetResortStatus(u supabase.StatusUpdate) (bool, error) {
 	f.updates = append(f.updates, u)
 	return true, nil
+}
+func (f *fakeStore) GetStatusRead(id int) (*supabase.StatusRead, error) { return f.reads[id], nil }
+func (f *fakeStore) RecordStatusRead(id int, fp string, at time.Time) error {
+	if f.reads == nil {
+		f.reads = map[int]*supabase.StatusRead{}
+	}
+	f.reads[id] = &supabase.StatusRead{MountainID: id, PageFingerprint: fp, ReadAt: at}
+	return nil
 }
 func (f *fakeStore) UploadEvidence(path string, _ []byte, _ string) (string, error) {
 	f.uploaded = append(f.uploaded, path)
@@ -430,4 +439,53 @@ func TestRunRespectsModelCallBudget(t *testing.T) {
 	if claude.calls != 0 || len(repo.created) != 0 {
 		t.Errorf("budget of 0 must block Claude calls: calls=%d issues=%d", claude.calls, len(repo.created))
 	}
+}
+
+func TestPageFingerprintIgnoresNonStatusText(t *testing.T) {
+	base := "Snow Report\nUpdated 6:02 AM\nTemp 28°F, wind 12 mph\nOpening Day: November 14\nLifts Open 0/9\nTrails Open 0/147"
+	sameStatus := "Snow Report\nUpdated 5:47 AM\nTemp 19°F, wind 30 mph\nOpening  day: November 14\nLifts Open 0/9\nTrails Open 0/147\nLifts Open 0/9"
+	if pageFingerprint(base) != pageFingerprint(sameStatus) {
+		t.Error("weather, update times, spacing and repeated lines should not change the fingerprint")
+	}
+	for _, changed := range []string{
+		strings.Replace(base, "November 14", "November 21", 1),
+		strings.Replace(base, "Trails Open 0/147", "Trails Open 3/147", 1),
+		base + "\nWe're open for the season!",
+	} {
+		if pageFingerprint(changed) == pageFingerprint(base) {
+			t.Errorf("status change not detected:\n%s", changed)
+		}
+	}
+}
+
+func TestRunSkipsStatusReadWhilePageUnchanged(t *testing.T) {
+	store := abasinStore("closed", 0)
+	claude := &fakeClaude{reading: &StatusReading{Status: "closed", Confidence: "high", Quote: "Opening Day: November 14"}}
+	m := newTestMonitor(store, claude, &fakeRepo{}, func(supabase.ScrapingConfig) (map[string]interface{}, error) {
+		return map[string]interface{}{"base_depth": 0, "lifts_open": 0, "runs_open": 0}, nil
+	})
+	text := "Opening Day: November 14\nTemp 28°F"
+	m.Capture = func(url, _ string) (*scraping.PageCapture, error) {
+		return &scraping.PageCapture{URL: url, VisibleText: text, Screenshot: []byte("png")}, nil
+	}
+	now := nov
+	m.Now = func() time.Time { return now }
+	run := func(label string, wantCalls int) {
+		t.Helper()
+		if err := m.Run(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		if claude.calls != wantCalls {
+			t.Errorf("%s: expected %d Claude calls in total, got %d", label, wantCalls, claude.calls)
+		}
+	}
+
+	run("first read", 1)
+	now = now.Add(24 * time.Hour)
+	text = "Opening Day: November 14\nTemp 12°F"
+	run("same status text, new weather", 1)
+	text = "Opening Day: November 21\nTemp 12°F"
+	run("opening day moved", 2)
+	now = now.Add(rereadAfter)
+	run("unchanged for a week", 3)
 }
