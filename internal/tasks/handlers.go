@@ -93,7 +93,9 @@ func HandleAvalancheScrapingTask(c context.Context, t *asynq.Task) error {
 	return nil
 }
 
-func HandleAlertEmailTask(c context.Context, t *asynq.Task, subject string, buildEmailBody func([]email.EmailData) string) error {
+// HandleAlertEmailTask sends one user's alert email. A send failure is also recorded against
+// the job's heartbeat so the health check reports it (the daily queue step records success).
+func HandleAlertEmailTask(c context.Context, t *asynq.Task, job, subject string, buildEmailBody func([]email.EmailData) string) error {
 	var p AlertEmailPayload
 	if err := json.Unmarshal(t.Payload(), &p); err != nil {
 		return fmt.Errorf("json.Unmarshal failed: %v: %w", err, asynq.SkipRetry)
@@ -104,16 +106,18 @@ func HandleAlertEmailTask(c context.Context, t *asynq.Task, subject string, buil
 	resend := email.NewResendService()
 	err := resend.SendEmail(subject, emailBody, p.Email)
 	if err != nil {
-		return fmt.Errorf("failed to send email: %w", err)
+		err = fmt.Errorf("failed to send email: %w", err)
+		supabase.NewSupabaseService().RecordJobRun(job, err)
+		return err
 	}
 
 	return nil
 }
 
 func HandleForecastAlertEmailTask(c context.Context, t *asynq.Task) error {
-	return HandleAlertEmailTask(c, t, "PowderHound forecast alert", email.BuildForecastAlertEmail)
+	return HandleAlertEmailTask(c, t, "forecast-alert-email", "PowderHound forecast alert", email.BuildForecastAlertEmail)
 }
 
 func HandleOvernightAlertEmailTask(c context.Context, t *asynq.Task) error {
-	return HandleAlertEmailTask(c, t, "PowderHound recent snowfall alert", email.BuildOvernightAlertEmail)
+	return HandleAlertEmailTask(c, t, "overnight-alert-email", "PowderHound recent snowfall alert", email.BuildOvernightAlertEmail)
 }

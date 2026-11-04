@@ -15,5 +15,7 @@ func HandleTask(c context.Context, t *asynq.Task) error {
 	if err != nil {
 		return fmt.Errorf("monitor setup: %w: %w", err, asynq.SkipRetry)
 	}
-	return m.Run(c)
+	err = m.Run(c)
+	m.Store.RecordJobRun("scraper-monitor", err)
+	return err
 }

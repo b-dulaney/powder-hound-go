@@ -120,24 +120,24 @@ func addMonitorCronTask(cron *cron.Cron, client *asynq.Client, env string) {
 }
 
 func addProductionEmailCronTasks(cron *cron.Cron, client *asynq.Client, supabase supabase.SupabaseClient) {
-	// Daily forecast alert emails - 4:30pm
+	// Daily forecast alert emails - 4:30pm. Job names match public.job_heartbeats.
 	cron.AddFunc("30 16 * * *", func() {
-		queue.QueueForecastAlertEmailTasks(client, supabase)
+		supabase.RecordJobRun("forecast-alert-email", queue.QueueForecastAlertEmailTasks(client, supabase))
 	})
 
 	// Overnight alert emails - 6:05am
 	cron.AddFunc("5 6 * * *", func() {
-		queue.QueueOvernightAlertEmailTasks(client, supabase)
+		supabase.RecordJobRun("overnight-alert-email", queue.QueueOvernightAlertEmailTasks(client, supabase))
 	})
 }
 
 func addDevelopmentEmailCronTasks(cron *cron.Cron, client *asynq.Client, supabase supabase.SupabaseClient) {
 	cron.AddFunc("@every 1m", func() {
-		queue.QueueForecastAlertEmailTasks(client, supabase)
+		supabase.RecordJobRun("forecast-alert-email", queue.QueueForecastAlertEmailTasks(client, supabase))
 	})
 
 	cron.AddFunc("@every 1m", func() {
-		queue.QueueOvernightAlertEmailTasks(client, supabase)
+		supabase.RecordJobRun("overnight-alert-email", queue.QueueOvernightAlertEmailTasks(client, supabase))
 	})
 }
 

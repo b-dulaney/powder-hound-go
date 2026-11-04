@@ -76,8 +76,11 @@ type MountainCoordinates struct {
 
 type SupabaseClient interface {
 	UpsertResortConditionsData(data map[string]interface{}) error
-	GetUserOvernightAlerts() []UserOvernightAlert
-	GetUserForecastAlerts() []UserForecastAlert
+	GetUserOvernightAlerts() ([]UserOvernightAlert, error)
+	GetUserForecastAlerts() ([]UserForecastAlert, error)
+	// RecordJobRun reports a scheduled job's outcome (runErr nil = success) for the health
+	// alerts in public.job_heartbeats. Failures to record are logged, never fatal.
+	RecordJobRun(job string, runErr error)
 	InsertScrapingStatus(data ScrapingStatusData) error
 	GetConfigByName(name string) ScrapingConfig
 	GetAllMountainObjectNames() []string

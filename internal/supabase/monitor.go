@@ -151,6 +151,11 @@ func (s *MonitorStore) GetConfig(slug string) (ScrapingConfig, error) {
 	return config, nil
 }
 
+// RecordJobRun reports the monitor's outcome to public.job_heartbeats.
+func (s *MonitorStore) RecordJobRun(job string, runErr error) {
+	recordJobRun(s.client, job, runErr)
+}
+
 func truncateForError(s string) string {
 	if len(s) > 300 {
 		return s[:300] + "…"

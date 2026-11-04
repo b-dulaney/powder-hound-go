@@ -2,6 +2,8 @@ package queue
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log"
 	"os"
 	"sort"
@@ -65,8 +67,14 @@ func QueueAvalancheScrapingTasks(client *asynq.Client, supabaseClient supabase.S
 	}
 }
 
-func QueueForecastAlertEmailTasks(client *asynq.Client, supabase supabase.SupabaseClient) {
-	userAlerts := supabase.GetUserForecastAlerts()
+// QueueForecastAlertEmailTasks enqueues one email per user with alerts. It returns an error when
+// the alert data can't be read or a task can't be enqueued, for the job heartbeat.
+func QueueForecastAlertEmailTasks(client *asynq.Client, supabase supabase.SupabaseClient) error {
+	userAlerts, err := supabase.GetUserForecastAlerts()
+	if err != nil {
+		return err
+	}
+	var enqueueErrs []error
 
 	for _, user := range userAlerts {
 		var emailData []email.EmailData
@@ -89,13 +97,25 @@ func QueueForecastAlertEmailTasks(client *asynq.Client, supabase supabase.Supaba
 
 		if err != nil {
 			log.Printf("[*] Error enqueuing task: %v", err)
+			enqueueErrs = append(enqueueErrs, err)
+			continue
 		}
 		log.Printf("[*] Enqueued task: %v", info)
 	}
+	if len(enqueueErrs) > 0 {
+		return fmt.Errorf("%d of %d forecast alert emails not enqueued: %w", len(enqueueErrs), len(userAlerts), errors.Join(enqueueErrs...))
+	}
+	return nil
 }
 
-func QueueOvernightAlertEmailTasks(client *asynq.Client, supabase supabase.SupabaseClient) {
-	userAlerts := supabase.GetUserOvernightAlerts()
+// QueueOvernightAlertEmailTasks enqueues one email per user with alerts. It returns an error when
+// the alert data can't be read or a task can't be enqueued, for the job heartbeat.
+func QueueOvernightAlertEmailTasks(client *asynq.Client, supabase supabase.SupabaseClient) error {
+	userAlerts, err := supabase.GetUserOvernightAlerts()
+	if err != nil {
+		return err
+	}
+	var enqueueErrs []error
 
 	for _, user := range userAlerts {
 		var emailData []email.EmailData
@@ -118,9 +138,15 @@ func QueueOvernightAlertEmailTasks(client *asynq.Client, supabase supabase.Supab
 
 		if err != nil {
 			log.Printf("[*] Error enqueuing task: %v", err)
+			enqueueErrs = append(enqueueErrs, err)
+			continue
 		}
 		log.Printf("[*] Enqueued task: %v", info)
 	}
+	if len(enqueueErrs) > 0 {
+		return fmt.Errorf("%d of %d overnight alert emails not enqueued: %w", len(enqueueErrs), len(userAlerts), errors.Join(enqueueErrs...))
+	}
+	return nil
 }
 
 // QueueMonitorTask enqueues the daily scraper health and resort status check. Unique keeps
