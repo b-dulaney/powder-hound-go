@@ -363,6 +363,8 @@ func (m *Monitor) readStatus(ctx context.Context, o Observation) error {
 		return err
 	}
 	log.Printf("[monitor] %s: Claude reads status=%s confidence=%s quote=%q", o.Slug, r.Status, r.Confidence, r.Quote)
+	r.ExpectedOpenDate = dropStaleDate(o.Slug, "open", r.ExpectedOpenDate, m.Now())
+	r.ExpectedCloseDate = dropStaleDate(o.Slug, "close", r.ExpectedCloseDate, m.Now())
 	// Remember what was read whatever the outcome: an unchanged page gets the same answer, and
 	// a proposal that was rejected (issue closed without /approve) isn't re-raised daily.
 	if err := m.Store.RecordStatusRead(o.Config.ID, fingerprint, m.Now()); err != nil {
@@ -423,4 +425,18 @@ func totalOrUnknown(total *int) string {
 		return "?"
 	}
 	return strconv.Itoa(*total)
+}
+
+// dropStaleDate discards an "expected" date that is more than a week past (or unparseable):
+// it's almost always a wrong year guessed for a date the page gave without one.
+func dropStaleDate(slug, kind, date string, now time.Time) string {
+	if date == "" {
+		return ""
+	}
+	d, err := time.Parse("2006-01-02", date)
+	if err != nil || d.Before(now.AddDate(0, 0, -7)) {
+		log.Printf("[monitor] %s: ignoring expected %s date %q", slug, kind, date)
+		return ""
+	}
+	return date
 }

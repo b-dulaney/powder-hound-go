@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	"powderhoundgo/internal/scraping"
 	"powderhoundgo/internal/supabase"
@@ -67,8 +68,8 @@ type StatusReading struct {
 	Status            string `json:"status" jsonschema:"enum=open,enum=closed,enum=unknown"`
 	Confidence        string `json:"confidence" jsonschema:"enum=high,enum=medium,enum=low"`
 	Quote             string `json:"quote" jsonschema_description:"Exact page text that supports the status; empty if there is none"`
-	ExpectedOpenDate  string `json:"expected_open_date" jsonschema_description:"Announced opening date as YYYY-MM-DD, or empty"`
-	ExpectedCloseDate string `json:"expected_close_date" jsonschema_description:"Announced closing date as YYYY-MM-DD, or empty"`
+	ExpectedOpenDate  string `json:"expected_open_date" jsonschema_description:"Announced opening date as YYYY-MM-DD (use the next occurrence after today when the page omits the year), or empty"`
+	ExpectedCloseDate string `json:"expected_close_date" jsonschema_description:"Announced closing date as YYYY-MM-DD (use the next occurrence after today when the page omits the year), or empty"`
 	Reasoning         string `json:"reasoning" jsonschema_description:"One or two sentences on how the evidence supports the status"`
 }
 
@@ -133,8 +134,10 @@ func (c *Claude) ProposeConfig(ctx context.Context, current supabase.ScrapingCon
 
 // ReadStatus asks Claude whether the resort on this page is operating.
 func (c *Claude) ReadStatus(ctx context.Context, resortName string, page *scraping.PageCapture, terrain string) (*StatusReading, error) {
-	user := fmt.Sprintf("Resort: %s\nScraper's latest reading: %s\nPage: %s\n\nRendered page text:\n<page_text>\n%s\n</page_text>",
-		resortName, terrain, page.URL, page.VisibleText)
+	// Today's date lets Claude resolve dates the page gives without a year ("DECEMBER 12th!").
+	// It's in the user turn, not the cached system prompt.
+	user := fmt.Sprintf("Today is %s.\nResort: %s\nScraper's latest reading: %s\nPage: %s\n\nRendered page text:\n<page_text>\n%s\n</page_text>",
+		time.Now().In(mountainTime).Format("Monday, January 2, 2006"), resortName, terrain, page.URL, page.VisibleText)
 	messages := []anthropic.BetaMessageParam{
 		anthropic.NewBetaUserMessage(
 			anthropic.NewBetaImageBlock(anthropic.BetaBase64ImageSourceParam{
@@ -184,3 +187,10 @@ func (c *Claude) call(ctx context.Context, system string, messages []anthropic.B
 	}
 	return nil
 }
+
+var mountainTime = func() *time.Location {
+	if loc, err := time.LoadLocation("America/Denver"); err == nil {
+		return loc
+	}
+	return time.UTC
+}()

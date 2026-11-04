@@ -510,3 +510,18 @@ func TestRunDoesNotProposeMediumConfidenceReadings(t *testing.T) {
 		t.Error("the read should still be recorded so an unchanged page isn't re-read")
 	}
 }
+
+func TestDropStaleDate(t *testing.T) {
+	now := time.Date(2026, 11, 4, 12, 0, 0, 0, time.UTC)
+	for date, want := range map[string]string{
+		"":           "",
+		"2026-12-12": "2026-12-12",
+		"2026-11-01": "2026-11-01", // a few days ago: opening day just passed
+		"2025-12-12": "",           // wrong year
+		"Dec 12":     "",
+	} {
+		if got := dropStaleDate("x", "open", date, now); got != want {
+			t.Errorf("dropStaleDate(%q) = %q, want %q", date, got, want)
+		}
+	}
+}
