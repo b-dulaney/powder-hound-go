@@ -11,24 +11,41 @@ import (
 	"github.com/supabase-community/supabase-go"
 )
 
+// ProductionProjectRef is the production Supabase project. Non-production runs refuse to
+// connect to it, so a development schedule can't write to production by accident.
+const ProductionProjectRef = "zfwpqcadelgvmvjmfuxi"
+
+// CheckTarget returns an error when a non-production run is pointed at production.
+func CheckTarget(url string, production bool) error {
+	if !production && strings.Contains(url, ProductionProjectRef) {
+		return fmt.Errorf("SUPABASE_URL points at the production project but this is not a production run; load .env.dev (ENV_FILE) or set ENV=production")
+	}
+	return nil
+}
+
+// NewSupabaseService connects to the project in SUPABASE_URL: production, the dev branch, or
+// the local stack. Set SUPABASE_MOCK=true to log writes instead of making them.
 func NewSupabaseService() SupabaseClient {
 	SUPABASE_URL := os.Getenv("SUPABASE_URL")
 	SUPABASE_SERVICE_ROLE_KEY := os.Getenv("SUPABASE_SERVICE_ROLE_KEY")
-	ENV := os.Getenv("ENV")
 
 	storageUrl := fmt.Sprintf("%s/storage/v1", SUPABASE_URL)
 	storageClient := storage_go.NewClient(storageUrl, SUPABASE_SERVICE_ROLE_KEY, nil)
 
-	if ENV == "production" {
-		client, clientErr := supabase.NewClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, nil)
-		if clientErr != nil {
-			log.Fatalf("Error creating supabase client: %s", clientErr)
-		}
-
-		return &SupabaseService{client, storageClient}
+	if os.Getenv("SUPABASE_MOCK") == "true" {
+		return &MockSupabaseService{storageClient}
 	}
 
-	return &MockSupabaseService{storageClient}
+	if err := CheckTarget(SUPABASE_URL, os.Getenv("ENV") == "production"); err != nil {
+		log.Fatal(err)
+	}
+
+	client, clientErr := supabase.NewClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, nil)
+	if clientErr != nil {
+		log.Fatalf("Error creating supabase client: %s", clientErr)
+	}
+
+	return &SupabaseService{client, storageClient}
 }
 
 func (s *SupabaseService) UpsertResortConditionsData(data map[string]interface{}) error {

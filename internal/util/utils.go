@@ -12,11 +12,17 @@ import (
 	"github.com/robfig/cron/v3"
 )
 
+// LoadEnvironmentVariables loads ENV_FILE, or ../.env by default (the path the Docker images
+// use). Point local runs at the dev branch with ENV_FILE=../.env.dev.
 func LoadEnvironmentVariables() {
-	err := godotenv.Load("../.env")
-	if err != nil {
-		log.Fatalf("Error loading .env file: %s", err)
+	file := os.Getenv("ENV_FILE")
+	if file == "" {
+		file = "../.env"
 	}
+	if err := godotenv.Load(file); err != nil {
+		log.Fatalf("Error loading %s: %s", file, err)
+	}
+	log.Printf("Loaded environment from %s", file)
 }
 
 func InitializeEmailCronTasks(client *asynq.Client, supabase supabase.SupabaseClient) *cron.Cron {
