@@ -20,7 +20,9 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /worker ./worker
 
 # Client release stage
 FROM chromedp/headless-shell:114.0.5735.199 AS client-release-stage
-RUN apt-get update && apt-get install -y ca-certificates --no-install-recommends && rm -rf /var/lib/apt/lists/*
+# CA bundle for the Go binaries' HTTPS calls, copied from the build image instead of apt
+# (headless-shell 114 is Debian bullseye; installing packages there is fragile).
+COPY --from=build-stage /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 WORKDIR /
 COPY --from=client-build-stage /client /client
 COPY --from=build-stage /app/config /config
@@ -30,7 +32,9 @@ ENTRYPOINT ["/client"]
 
 # Worker release stage
 FROM chromedp/headless-shell:114.0.5735.199 AS worker-release-stage
-RUN apt-get update && apt-get install -y ca-certificates --no-install-recommends && rm -rf /var/lib/apt/lists/*
+# CA bundle for the Go binaries' HTTPS calls, copied from the build image instead of apt
+# (headless-shell 114 is Debian bullseye; installing packages there is fragile).
+COPY --from=build-stage /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 WORKDIR /
 COPY --from=worker-build-stage /worker /worker
 COPY --from=build-stage /app/config /config
