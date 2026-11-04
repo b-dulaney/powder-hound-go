@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"powderhoundgo/internal/monitor"
 	"powderhoundgo/internal/tasks"
 	"powderhoundgo/internal/util"
 
@@ -24,7 +25,7 @@ func main() {
 	mux := asynq.NewServeMux()
 	mux.HandleFunc(tasks.TypeResortWebScrapingJob, tasks.HandleResortWebScrapeTask)
 	mux.HandleFunc(tasks.TypeAvalancheScrapingJob, tasks.HandleAvalancheScrapingTask)
-	mux.HandleFunc(tasks.TypeMonitorDaily, tasks.HandleMonitorTask)
+	mux.HandleFunc(tasks.TypeMonitorDaily, monitor.HandleTask)
 
 	if err := srv.Run(mux); err != nil {
 		log.Fatal(err)
