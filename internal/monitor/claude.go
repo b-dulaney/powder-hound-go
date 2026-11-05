@@ -86,7 +86,7 @@ Selector rules:
 - Prefer stable hooks: ids, data-* attributes, semantic structure, and the stable part of generated class names. Many sites use CSS modules with build hashes like "StatsWidget_statBig__JTduy"; the hash changes on every deploy, so match the prefix with [class*="StatsWidget_statBig"], never the full hashed name.
 - Each selector must match exactly the element holding the value, scoped inside its container.
 - Chrome supports :has(), :nth-child() and attribute selectors.
-- Keep id, name, closingDate and any fields you don't need to change exactly as they are in the current config. Keep URLs unless the data moved to a different page.
+- Keep id, name and any fields you don't need to change exactly as they are in the current config. Keep URLs unless the data moved to a different page.
 
 Report in "expected" the values you read on the page for each field, and quote the page text for each in "evidence". These are checked against an actual scrape with your config, so read them carefully from the page, not from the config.`
 

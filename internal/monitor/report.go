@@ -136,7 +136,7 @@ func orDash(s string) string {
 }
 
 // mergeConfigJSON overlays the proposed config onto the original file, so keys the Go struct
-// doesn't model (and nulls such as closingDate) survive, and formats it like the repo files.
+// doesn't model (and nulls) survive, and formats it like the repo files.
 func mergeConfigJSON(original []byte, proposed supabase.ScrapingConfig) ([]byte, error) {
 	var base map[string]any
 	if err := json.Unmarshal(original, &base); err != nil {
