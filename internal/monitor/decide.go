@@ -21,10 +21,13 @@ type ScrapeResult struct {
 type Observation struct {
 	Slug   string
 	Config supabase.ScrapingConfig
-	// State is the resort_conditions row; its lift count comes from the last hourly scrape.
+	// State is the resort_conditions row. Its lift count comes from the last hourly scrape or,
+	// for a closed resort (which the hourly queue skips), from a scrape the monitor saved.
 	State supabase.ResortState
-	// Scrape is the monitor's own scrape just now (nil if it failed, see ScrapeErr).
+	// Scrape is the monitor's own scrape just now (nil if it failed, see ScrapeErr), and Raw is
+	// the same scrape in the shape the hourly scraper writes to resort_conditions.
 	Scrape    *ScrapeResult
+	Raw       map[string]interface{}
 	ScrapeErr error
 }
 
@@ -37,7 +40,11 @@ type Decision struct {
 	ReadStatus bool
 	// FixConfig: the scraper is broken for a resort that should be reporting data.
 	FixConfig bool
-	Reason    string
+	// SaveScrape: write the monitor's scrape to resort_conditions. Used for a closed resort
+	// that looks operating, since the hourly queue skips closed resorts and would never
+	// provide the second reading AutoOpen needs.
+	SaveScrape bool
+	Reason     string
 }
 
 func intValue(p *int) int {
@@ -97,6 +104,11 @@ func decide(o Observation, now time.Time) Decision {
 		if status != "open" {
 			d.AutoOpen = true
 		}
+	case operatingNow && status == "closed":
+		// Hourly scrapes skip closed resorts, so save this reading for tomorrow's check to
+		// confirm, and have Claude read the page in the meantime.
+		d.SaveScrape = true
+		d.ReadStatus = true
 	case operatingNow:
 		// Only one reading so far; the next hourly scrape plus tomorrow's check will confirm.
 	case status == "closed":

@@ -32,6 +32,7 @@ type Store interface {
 	GetStatusRead(mountainID int) (*supabase.StatusRead, error)
 	RecordJobRun(job string, runErr error)
 	RecordStatusRead(mountainID int, fingerprint string, at time.Time) error
+	SaveConditions(data map[string]interface{}) error
 }
 
 // rereadAfter forces a status read even when the page's status text hasn't changed, in case
@@ -158,6 +159,7 @@ func (m *Monitor) checkResort(ctx context.Context, slug string, states map[int]s
 	} else {
 		r := toScrapeResult(result)
 		o.Scrape = &r
+		o.Raw = result
 	}
 
 	d := decide(o, m.Now())
@@ -178,6 +180,11 @@ func (m *Monitor) checkResort(ctx context.Context, slug string, states map[int]s
 			return fmt.Errorf("auto-open: %w", err)
 		}
 		log.Printf("[monitor] %s: auto-open applied=%v (%s)", slug, changed, evidence)
+	}
+	if d.SaveScrape {
+		if err := m.Store.SaveConditions(o.Raw); err != nil {
+			log.Printf("[monitor] %s: saving scrape: %v", slug, err)
+		}
 	}
 	if d.FixConfig {
 		if err := m.fixConfig(ctx, o, d.Reason); err != nil {

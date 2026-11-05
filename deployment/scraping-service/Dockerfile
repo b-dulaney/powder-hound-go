@@ -4,7 +4,6 @@
 FROM golang:1.25.0 as build-stage
 WORKDIR /app
 COPY go.mod go.sum Makefile ./
-COPY config ./config/
 COPY cmd/scraping-service/worker ./worker/
 COPY cmd/scraping-service/client ./client/
 COPY internal ./internal/
@@ -25,7 +24,6 @@ FROM chromedp/headless-shell:114.0.5735.199 AS client-release-stage
 COPY --from=build-stage /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 WORKDIR /
 COPY --from=client-build-stage /client /client
-COPY --from=build-stage /app/config /config
 COPY --from=build-stage /app/internal /internal
 EXPOSE 8080
 ENTRYPOINT ["/client"]
@@ -37,7 +35,6 @@ FROM chromedp/headless-shell:114.0.5735.199 AS worker-release-stage
 COPY --from=build-stage /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 WORKDIR /
 COPY --from=worker-build-stage /worker /worker
-COPY --from=build-stage /app/config /config
 COPY --from=build-stage /app/internal /internal
 EXPOSE 8081
 ENTRYPOINT ["/worker"]

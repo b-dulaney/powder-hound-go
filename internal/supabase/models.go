@@ -56,8 +56,9 @@ type TerrainConfig struct {
 }
 
 type ScrapingConfig struct {
-	ID            int              `json:"id"`
-	Name          string           `json:"name"`
+	ID   int    `json:"id"`
+	Name string `json:"name"`
+	// Deprecated: the scraper queue reads resort_conditions.status instead.
 	ClosingDate   string           `json:"closingDate"`
 	SeparateURLs  bool             `json:"separateURLs"`
 	ClickSelector string           `json:"clickSelector"`
@@ -84,6 +85,8 @@ type SupabaseClient interface {
 	InsertScrapingStatus(data ScrapingStatusData) error
 	GetConfigByName(name string) ScrapingConfig
 	GetAllMountainObjectNames() []string
+	// GetResortStatuses returns resort_conditions.status (open | closed | unknown) by mountain_id.
+	GetResortStatuses() (map[int]string, error)
 	// Avalanche forecast methods
 	UpsertAvalancheForecast(data map[string]interface{}) error
 	GetMountainsWithAvalancheForecasts() ([]MountainCoordinates, error)

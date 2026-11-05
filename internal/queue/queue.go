@@ -18,9 +18,14 @@ import (
 
 func QueueResortWebScrapeTasks(client *asynq.Client, supabase supabase.SupabaseClient) {
 	mountainNames := supabase.GetAllMountainObjectNames()
+	statuses, err := supabase.GetResortStatuses()
+	if err != nil {
+		// Fail open: scraping a closed resort is harmless, skipping an open one isn't.
+		log.Printf("[*] Couldn't read resort statuses, queueing every resort: %v", err)
+	}
 	for _, mountain := range mountainNames {
-		if isResortClosed(mountain, supabase) {
-			log.Printf("[*] Resort %s is closed - skipping job", mountain)
+		if isResortClosed(supabase.GetConfigByName(mountain), statuses) {
+			log.Printf("[*] Resort %s is closed for the season - skipping job", mountain)
 		} else {
 			payload, err := json.Marshal(tasks.ResortWebScrapePayload{MountainName: mountain})
 			if err != nil {
@@ -174,18 +179,9 @@ func buildTask(taskType string, payload []byte) *asynq.Task {
 	return task
 }
 
-// Used to determine whether or not the web scraping task should be queued
-// If the config's closing date is in the past, we should not queue this task or collect any data
-func isResortClosed(mountain string, supabase supabase.SupabaseClient) bool {
-	config := supabase.GetConfigByName(mountain)
-
-	if config.ClosingDate != "" {
-		const layout = "2006-01-02 5:00pm (MST)"
-		closingDate, err := time.Parse(layout, config.ClosingDate)
-		if err != nil {
-			log.Printf("Error parsing closing date: %v", err)
-		}
-		return time.Now().After(closingDate)
-	}
-	return false
+// isResortClosed reports whether a resort's status in resort_conditions is "closed", so its
+// hourly scrape is skipped. Resorts with no row or an "unknown" status are still scraped. The
+// daily monitor scrapes closed resorts itself, so it still notices when one opens.
+func isResortClosed(config supabase.ScrapingConfig, statuses map[int]string) bool {
+	return statuses[config.ID] == "closed"
 }

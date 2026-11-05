@@ -168,6 +168,25 @@ func (s *SupabaseService) GetMountainsWithAvalancheForecasts() ([]MountainCoordi
 	return mountains, nil
 }
 
+func (s *SupabaseService) GetResortStatuses() (map[int]string, error) {
+	data, _, err := s.client.From("resort_conditions").Select("mountain_id,status", "", false).Execute()
+	if err != nil {
+		return nil, fmt.Errorf("read resort statuses: %w", err)
+	}
+	var rows []struct {
+		MountainID int    `json:"mountain_id"`
+		Status     string `json:"status"`
+	}
+	if err := json.Unmarshal(data, &rows); err != nil {
+		return nil, fmt.Errorf("decode resort statuses: %w (body: %s)", err, truncateForError(string(data)))
+	}
+	statuses := make(map[int]string, len(rows))
+	for _, row := range rows {
+		statuses[row.MountainID] = row.Status
+	}
+	return statuses, nil
+}
+
 /** Mock Supabase Service Implementations **/
 func (s *MockSupabaseService) UpsertResortConditionsData(data map[string]interface{}) error {
 	log.Printf("Mock upsert data: %v", data)
@@ -254,6 +273,10 @@ func (s *MockSupabaseService) GetAllMountainObjectNames() []string {
 func (s *MockSupabaseService) UpsertAvalancheForecast(data map[string]interface{}) error {
 	log.Printf("Mock upsert avalanche forecast: %v", data)
 	return nil
+}
+
+func (s *MockSupabaseService) GetResortStatuses() (map[int]string, error) {
+	return map[int]string{}, nil
 }
 
 func (s *MockSupabaseService) GetMountainsWithAvalancheForecasts() ([]MountainCoordinates, error) {

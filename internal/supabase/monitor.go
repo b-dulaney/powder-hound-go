@@ -84,6 +84,14 @@ func (s *MonitorStore) GetResortStates() (map[int]ResortState, error) {
 	return states, nil
 }
 
+// SaveConditions upserts one scrape result into resort_conditions, as the hourly scraper does.
+func (s *MonitorStore) SaveConditions(data map[string]interface{}) error {
+	if _, _, err := s.client.From("resort_conditions").Upsert(data, "mountain_id", "*", "estimated").Execute(); err != nil {
+		return fmt.Errorf("upsert resort_conditions: %w", err)
+	}
+	return nil
+}
+
 // SetResortStatus calls public.set_resort_status. It returns false when nothing changed,
 // including when an automatic update is skipped because the status was set by hand.
 func (s *MonitorStore) SetResortStatus(u StatusUpdate) (bool, error) {

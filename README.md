@@ -9,7 +9,7 @@ PowderHound-Go is a collection of backend services for PowderHound, primarily ha
 The project is structured as follows:
 
 - [`cmd/`](command:_github.copilot.openRelativePath?%5B%22cmd%2F%22%5D "cmd/"): Contains the main applications for the project (email-service and scraping-service).
-- [`config/`](command:_github.copilot.openRelativePath?%5B%22config%2F%22%5D "config/"): Contains JSON configuration files that control the resort web scraping jobs.
+- Scraper configs live in the powder-hound repo (`supabase/storage/scraping-config/`) and are read at runtime from the `scraping-config` Supabase Storage bucket.
 - [`deployment/`](command:_github.copilot.openRelativePath?%5B%22deployment%2F%22%5D "deployment/"): Contains Docker files for the email and scraping services.
 - [`internal/`](command:_github.copilot.openRelativePath?%5B%22internal%2F%22%5D "internal/"): Internal packages that contain most of the logic for the email and web scraping services.
 

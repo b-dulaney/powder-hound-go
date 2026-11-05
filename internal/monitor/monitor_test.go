@@ -38,6 +38,11 @@ func TestDecide(t *testing.T) {
 			now:  nov, want: Decision{},
 		},
 		{
+			name: "closed resort operating in one reading saves it and gets a status read",
+			o:    Observation{State: supabase.ResortState{Status: "closed", StatusSource: "auto", LiftsOpen: ptr(0)}, Scrape: scrape(2)},
+			now:  jul, want: Decision{SaveScrape: true, ReadStatus: true},
+		},
+		{
 			name: "already open with lifts does nothing",
 			o:    Observation{State: supabase.ResortState{Status: "open", StatusSource: "auto", LiftsOpen: ptr(3)}, Scrape: scrape(3)},
 			now:  nov, want: Decision{},
@@ -198,6 +203,12 @@ type fakeStore struct {
 	updates  []supabase.StatusUpdate
 	uploaded []string
 	reads    map[int]*supabase.StatusRead
+	saved    []map[string]interface{}
+}
+
+func (f *fakeStore) SaveConditions(data map[string]interface{}) error {
+	f.saved = append(f.saved, data)
+	return nil
 }
 
 func (f *fakeStore) ListConfigSlugs() ([]string, error) {
@@ -326,6 +337,28 @@ func TestRunAutoOpensFromLiftData(t *testing.T) {
 	}
 	if claude.calls != 0 {
 		t.Errorf("lift proof should not need Claude, got %d calls", claude.calls)
+	}
+}
+
+// The hourly queue skips closed resorts, so the monitor saves its own reading and the next
+// day's run has the two readings it needs to auto-open.
+func TestRunSavesScrapeOfClosedResortThatLooksOpen(t *testing.T) {
+	store := abasinStore("closed", 0)
+	claude := &fakeClaude{reading: &StatusReading{Status: "open", Confidence: "medium", Quote: "Lifts", Reasoning: "lifts"}}
+	m := newTestMonitor(store, claude, &fakeRepo{}, func(supabase.ScrapingConfig) (map[string]interface{}, error) {
+		return map[string]interface{}{"mountain_id": 5, "base_depth": 18, "lifts_open": 2, "runs_open": 4}, nil
+	})
+	if err := m.Run(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(store.saved) != 1 || store.saved[0]["lifts_open"] != 2 {
+		t.Fatalf("expected the scrape to be saved, got %+v", store.saved)
+	}
+	if len(store.updates) != 0 {
+		t.Fatalf("one reading must not change status, got %+v", store.updates)
+	}
+	if claude.calls != 1 {
+		t.Errorf("expected a status read, got %d model calls", claude.calls)
 	}
 }
 
