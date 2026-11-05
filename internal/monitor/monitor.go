@@ -1,7 +1,8 @@
 // Package monitor runs the daily scraper health and resort status check.
 //
 // For each resort it scrapes with the stored config, then:
-//   - marks the resort open automatically when two independent scrapes saw runs or lifts open;
+//   - marks the resort open automatically when two independent scrapes saw runs or lifts open
+//     (for a closed resort, the second scrape is a follow-up task about an hour later);
 //   - otherwise asks Claude to read the page (skipped while the page's status text is unchanged
 //     since the last read, up to a week), and opens a GitHub issue proposing the status
 //     change when Claude disagrees with the database (approved by commenting /approve);
@@ -65,6 +66,10 @@ type Monitor struct {
 	Capture func(url, clickSelector string) (*scraping.PageCapture, error)
 	Proof   func(supabase.ScrapingConfig) (*scraping.ProofCapture, error)
 	Now     func() time.Time
+
+	// ScheduleConfirmOpen, when set, queues ConfirmOpen for a closed resort whose scrape shows
+	// it operating, so it can open about an hour later instead of after the next daily run.
+	ScheduleConfirmOpen func(ConfirmOpenRequest) error
 
 	// MaxModelCalls caps Claude requests per run.
 	MaxModelCalls int
@@ -184,6 +189,14 @@ func (m *Monitor) checkResort(ctx context.Context, slug string, states map[int]s
 	if d.SaveScrape {
 		if err := m.Store.SaveConditions(o.Raw); err != nil {
 			log.Printf("[monitor] %s: saving scrape: %v", slug, err)
+		}
+		if m.ScheduleConfirmOpen != nil {
+			req := ConfirmOpenRequest{Slug: slug, RunsOpen: o.Scrape.RunsOpen, LiftsOpen: o.Scrape.LiftsOpen, ScrapedAt: m.Now()}
+			if err := m.ScheduleConfirmOpen(req); err != nil {
+				log.Printf("[monitor] %s: scheduling the confirm-open check: %v", slug, err)
+			} else {
+				log.Printf("[monitor] %s: looks open; confirm-open check scheduled", slug)
+			}
 		}
 	}
 	if d.FixConfig {

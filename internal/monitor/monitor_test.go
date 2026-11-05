@@ -362,6 +362,71 @@ func TestRunSavesScrapeOfClosedResortThatLooksOpen(t *testing.T) {
 	}
 }
 
+func TestRunSchedulesConfirmOpenForClosedResortThatLooksOpen(t *testing.T) {
+	store := abasinStore("closed", 0)
+	m := newTestMonitor(store, &fakeClaude{reading: &StatusReading{Status: "unknown"}}, &fakeRepo{}, func(supabase.ScrapingConfig) (map[string]interface{}, error) {
+		return map[string]interface{}{"mountain_id": 5, "base_depth": 18, "lifts_open": 2, "runs_open": 4}, nil
+	})
+	var scheduled []ConfirmOpenRequest
+	m.ScheduleConfirmOpen = func(r ConfirmOpenRequest) error { scheduled = append(scheduled, r); return nil }
+	if err := m.Run(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	want := ConfirmOpenRequest{Slug: "a-basin", RunsOpen: 4, LiftsOpen: 2, ScrapedAt: nov}
+	if len(scheduled) != 1 || scheduled[0] != want {
+		t.Fatalf("scheduled %+v, want [%+v]", scheduled, want)
+	}
+}
+
+func TestConfirmOpen(t *testing.T) {
+	first := ConfirmOpenRequest{Slug: "a-basin", RunsOpen: 4, LiftsOpen: 2, ScrapedAt: nov.Add(-time.Hour)}
+	scrapeWith := func(runs, lifts int) func(supabase.ScrapingConfig) (map[string]interface{}, error) {
+		return func(supabase.ScrapingConfig) (map[string]interface{}, error) {
+			return map[string]interface{}{"mountain_id": 5, "base_depth": 18, "lifts_open": lifts, "runs_open": runs}, nil
+		}
+	}
+	cases := []struct {
+		name     string
+		store    *fakeStore
+		scrape   func(supabase.ScrapingConfig) (map[string]interface{}, error)
+		wantOpen bool
+	}{
+		{"still operating opens it", abasinStore("closed", 2), scrapeWith(6, 3), true},
+		{"no longer operating stays closed", abasinStore("closed", 2), scrapeWith(0, 0), false},
+		{"impossible numbers are not evidence", abasinStore("closed", 2), scrapeWith(0, 40), false},
+		{"already opened does nothing", abasinStore("open", 2), scrapeWith(6, 3), false},
+		{"failed scrape waits for the daily check", abasinStore("closed", 2), func(supabase.ScrapingConfig) (map[string]interface{}, error) {
+			return nil, errors.New("timeout")
+		}, false},
+	}
+	manual := abasinStore("closed", 2)
+	st := manual.states[5]
+	st.StatusSource = "manual"
+	manual.states[5] = st
+	cases = append(cases, struct {
+		name     string
+		store    *fakeStore
+		scrape   func(supabase.ScrapingConfig) (map[string]interface{}, error)
+		wantOpen bool
+	}{"manual status is left alone", manual, scrapeWith(6, 3), false})
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			m := newTestMonitor(tc.store, &fakeClaude{}, &fakeRepo{}, tc.scrape)
+			if err := m.ConfirmOpen(context.Background(), first); err != nil {
+				t.Fatal(err)
+			}
+			opened := len(tc.store.updates) == 1 && tc.store.updates[0].Status == "open" && tc.store.updates[0].Source == "auto"
+			if opened != tc.wantOpen || (!tc.wantOpen && len(tc.store.updates) != 0) {
+				t.Fatalf("updates = %+v, want open=%v", tc.store.updates, tc.wantOpen)
+			}
+			if tc.wantOpen && len(tc.store.saved) != 1 {
+				t.Errorf("expected the confirming scrape to be saved, got %+v", tc.store.saved)
+			}
+		})
+	}
+}
+
 func TestRunProposesStatusChangeAsIssue(t *testing.T) {
 	store := abasinStore("open", 0)
 	repo := &fakeRepo{}

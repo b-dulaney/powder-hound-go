@@ -72,11 +72,8 @@ func decide(o Observation, now time.Time) Decision {
 
 	// Impossible numbers mean the selectors read the wrong elements; they're never evidence.
 	impossible := ""
-	switch {
-	case o.Scrape != nil && exceeds(liftsNow, o.State.TotalLifts):
-		impossible = fmt.Sprintf("scraped %d lifts open but the resort has %d", liftsNow, *o.State.TotalLifts)
-	case o.Scrape != nil && exceeds(runsNow, o.State.TotalRuns):
-		impossible = fmt.Sprintf("scraped %d runs open but the resort has %d", runsNow, *o.State.TotalRuns)
+	if o.Scrape != nil {
+		impossible = impossibleReading(*o.Scrape, o.State)
 	}
 
 	// Broken scraper. A closed resort's page often stops showing data, so only chase fixes
@@ -121,6 +118,18 @@ func decide(o Observation, now time.Time) Decision {
 		d.ReadStatus = true
 	}
 	return d
+}
+
+// impossibleReading describes a scrape whose counts exceed the resort's known totals, or
+// returns "" when the numbers are plausible.
+func impossibleReading(r ScrapeResult, state supabase.ResortState) string {
+	switch {
+	case exceeds(r.LiftsOpen, state.TotalLifts):
+		return fmt.Sprintf("scraped %d lifts open but the resort has %d", r.LiftsOpen, *state.TotalLifts)
+	case exceeds(r.RunsOpen, state.TotalRuns):
+		return fmt.Sprintf("scraped %d runs open but the resort has %d", r.RunsOpen, *state.TotalRuns)
+	}
+	return ""
 }
 
 // exceeds reports whether n is more than a known, positive total.

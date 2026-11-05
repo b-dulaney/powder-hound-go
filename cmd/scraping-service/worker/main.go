@@ -22,10 +22,15 @@ func main() {
 		Concurrency: 0,
 	})
 
+	// Lets the daily monitor queue its follow-up confirm-open checks.
+	client := asynq.NewClient(redisOpts)
+	defer client.Close()
+
 	mux := asynq.NewServeMux()
 	mux.HandleFunc(tasks.TypeResortWebScrapingJob, tasks.HandleResortWebScrapeTask)
 	mux.HandleFunc(tasks.TypeAvalancheScrapingJob, tasks.HandleAvalancheScrapingTask)
-	mux.HandleFunc(tasks.TypeMonitorDaily, monitor.HandleTask)
+	mux.HandleFunc(tasks.TypeMonitorDaily, monitor.DailyTask(client))
+	mux.HandleFunc(tasks.TypeMonitorConfirmOpen, monitor.HandleConfirmOpenTask)
 
 	if err := srv.Run(mux); err != nil {
 		log.Fatal(err)

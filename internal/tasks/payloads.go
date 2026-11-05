@@ -13,6 +13,7 @@ const (
 	TypeForecastAlertEmail   = "email:forecast"
 	TypeOvernightEmail       = "email:overnight"
 	TypeMonitorDaily         = "monitor:daily"
+	TypeMonitorConfirmOpen   = "monitor:confirm-open"
 )
 
 func NewResortWebScrapeTask(name string) (*asynq.Task, error) {
