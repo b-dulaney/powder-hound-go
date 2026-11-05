@@ -56,10 +56,8 @@ type TerrainConfig struct {
 }
 
 type ScrapingConfig struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
-	// Deprecated: the scraper queue reads resort_conditions.status instead.
-	ClosingDate   string           `json:"closingDate"`
+	ID            int              `json:"id"`
+	Name          string           `json:"name"`
 	SeparateURLs  bool             `json:"separateURLs"`
 	ClickSelector string           `json:"clickSelector"`
 	ConditionsURL string           `json:"conditionsURL"`
