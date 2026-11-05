@@ -199,6 +199,20 @@ func (m *Monitor) checkResort(ctx context.Context, slug string, states map[int]s
 			}
 		}
 	}
+	if d.SaveTotals && !d.SaveScrape { // a saved scrape already carries the totals
+		totals := map[string]interface{}{"mountain_id": cfg.ID}
+		if o.Scrape.LiftsTotal > 0 {
+			totals["total_lifts"] = o.Scrape.LiftsTotal
+		}
+		if o.Scrape.RunsTotal > 0 {
+			totals["total_runs"] = o.Scrape.RunsTotal
+		}
+		if err := m.Store.SaveConditions(totals); err != nil {
+			log.Printf("[monitor] %s: saving totals: %v", slug, err)
+		} else {
+			log.Printf("[monitor] %s: totals now %v (were %d lifts, %d runs)", slug, totals, intValue(state.TotalLifts), intValue(state.TotalRuns))
+		}
+	}
 	if d.FixConfig {
 		if err := m.fixConfig(ctx, o, d.Reason); err != nil {
 			log.Printf("[monitor] %s: config fix: %v", slug, err)

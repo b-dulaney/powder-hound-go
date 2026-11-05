@@ -22,7 +22,12 @@ func clickProvidedSelector(ctx context.Context, config supabase.ScrapingConfig) 
 	)
 }
 
-func countLiftsAndRuns(ctx context.Context, config supabase.ScrapingConfig) (runsOpen, liftsOpen int, err error) {
+// terrainCounts is what a terrain scrape reports. A total of 0 means the page didn't give one.
+type terrainCounts struct {
+	RunsOpen, LiftsOpen, RunsTotal, LiftsTotal int
+}
+
+func countLiftsAndRuns(ctx context.Context, config supabase.ScrapingConfig) (terrainCounts, error) {
 	tctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
@@ -41,7 +46,7 @@ func countLiftsAndRuns(ctx context.Context, config supabase.ScrapingConfig) (run
 				chromedp.Nodes(config.Terrain.RunClickSelector, &buttonsToClick, chromedp.ByQueryAll),
 			)
 			if runErr != nil {
-				return 0, 0, runErr
+				return terrainCounts{}, runErr
 			}
 		}
 
@@ -51,9 +56,13 @@ func countLiftsAndRuns(ctx context.Context, config supabase.ScrapingConfig) (run
 		for _, button := range buttonsToClick {
 			runChromeDP(ctx, chromedp.Click(button.FullXPath()))
 		}
-		runChromeDP(ctx,
+		// Its own short timeout: with no runs open this waits for a match that never comes, and
+		// on the scrape's context that used to consume the whole scrape timeout.
+		rctx, rcancel := context.WithTimeout(ctx, 10*time.Second)
+		runChromeDP(rctx,
 			chromedp.Nodes(config.Terrain.RunStatusSelector, &openRuns, chromedp.ByQueryAll),
 		)
+		rcancel()
 	} else {
 		err := runChromeDP(tctx,
 			chromedp.WaitReady(config.Terrain.LiftsOpenSelector),
@@ -61,10 +70,56 @@ func countLiftsAndRuns(ctx context.Context, config supabase.ScrapingConfig) (run
 			chromedp.Nodes(config.Terrain.RunStatusSelector, &openRuns, chromedp.ByQueryAll),
 		)
 		if err != nil {
-			return 0, 0, nil
+			// Nothing open (the wait for an open lift or run timed out); totals still count.
+			openLifts, openRuns = nil, nil
 		}
 	}
-	return len(openRuns), len(openLifts), nil
+	return terrainCounts{RunsOpen: len(openRuns), LiftsOpen: len(openLifts)}, nil
+}
+
+// addTotals fills in totals the open counts didn't include, from the config's total or row
+// selectors.
+func addTotals(ctx context.Context, t supabase.TerrainConfig, c terrainCounts) terrainCounts {
+	if c.RunsTotal == 0 {
+		c.RunsTotal = pageTotal(ctx, t.RunTotalSelector, t.RunRowSelector)
+	}
+	if c.LiftsTotal == 0 {
+		c.LiftsTotal = pageTotal(ctx, t.LiftTotalSelector, t.LiftRowSelector)
+	}
+	return c
+}
+
+// pageTotal reads a total from totalSelector's text, or counts rowSelector's matches. 0 means
+// unknown.
+func pageTotal(ctx context.Context, totalSelector, rowSelector string) int {
+	if totalSelector != "" {
+		cctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+		var text string
+		if err := runChromeDP(cctx, chromedp.TextContent(totalSelector, &text, chromedp.ByQuery)); err != nil {
+			return 0
+		}
+		if n := parseTotal(text); n > 0 {
+			return n
+		}
+		n, _ := convertStringToInt(text)
+		return n
+	}
+	return countNodes(ctx, rowSelector)
+}
+
+// countNodes returns how many elements match selector, or 0 when it's empty or nothing matches.
+func countNodes(ctx context.Context, selector string) int {
+	if selector == "" {
+		return 0
+	}
+	cctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	var nodes []*cdp.Node
+	if err := runChromeDP(cctx, chromedp.Nodes(selector, &nodes, chromedp.ByQueryAll, chromedp.AtLeast(0))); err != nil {
+		return 0
+	}
+	return len(nodes)
 }
 
 func processTextAndConvertToInt(text string, propertyName string) (int, error) {
@@ -169,7 +224,7 @@ func processConditions(ctx context.Context, config supabase.ScrapingConfig, cond
 	return baseDepth, snow24, snow48, snow7Days, seasonTotal, snowpack, nil
 }
 
-func processTerrain(ctx context.Context, config supabase.ScrapingConfig, terrainNodes []*cdp.Node) (runsOpen, liftsOpen int, err error) {
+func processTerrain(ctx context.Context, config supabase.ScrapingConfig, terrainNodes []*cdp.Node) (counts terrainCounts, err error) {
 	var runsOpenText, liftsOpenText string
 	tctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
@@ -186,10 +241,12 @@ func processTerrain(ctx context.Context, config supabase.ScrapingConfig, terrain
 	runsOpenFormatted, err := removeDenominator(runsOpenText)
 	liftsOpenFormatted, err := removeDenominator(liftsOpenText)
 
-	runsOpen, err = convertStringToInt(runsOpenFormatted)
-	liftsOpen, err = convertStringToInt(liftsOpenFormatted)
+	counts.RunsOpen, err = convertStringToInt(runsOpenFormatted)
+	counts.LiftsOpen, err = convertStringToInt(liftsOpenFormatted)
+	counts.RunsTotal = parseTotal(runsOpenText)
+	counts.LiftsTotal = parseTotal(liftsOpenText)
 
-	return runsOpen, liftsOpen, err
+	return counts, err
 }
 
 func navigateToURL(ctx context.Context, url string) {
@@ -215,13 +272,12 @@ func getTerrainNodes(ctx context.Context, config supabase.ScrapingConfig) []*cdp
 	return terrainNodes
 }
 
-func getTerrainData(ctx context.Context, config supabase.ScrapingConfig) (runsOpen, liftsOpen int, err error) {
+func getTerrainData(ctx context.Context, config supabase.ScrapingConfig) (terrainCounts, error) {
 	// Handles cases where the site requires a click to load the terrain data
 	if config.ClickSelector != "" {
 		clickProvidedSelector(ctx, config)
 		terrainNodes := getTerrainNodes(ctx, config)
-		runsOpen, liftsOpen, err = processTerrain(ctx, config, terrainNodes)
-		return runsOpen, liftsOpen, err
+		return processTerrain(ctx, config, terrainNodes)
 	}
 
 	// Handles cases where the terrain data is on a separate page
@@ -231,27 +287,23 @@ func getTerrainData(ctx context.Context, config supabase.ScrapingConfig) (runsOp
 		// Handles cases where an exact count of lifts and runs is not provided
 		// and we need to count them ourselves
 		if config.Terrain.CountLifts {
-			runsOpen, liftsOpen, err = countLiftsAndRuns(ctx, config)
-			return runsOpen, liftsOpen, err
+			return countLiftsAndRuns(ctx, config)
 		}
 
 		terrainNodes := getTerrainNodes(ctx, config)
-		runsOpen, liftsOpen, err = processTerrain(ctx, config, terrainNodes)
-		return runsOpen, liftsOpen, err
+		return processTerrain(ctx, config, terrainNodes)
 	}
 
 	// Handles cases where the terrain data is on the same page as the conditions data
 	// but the exact count of lifts and runs is not provided
 	if config.Terrain.CountLifts {
-		runsOpen, liftsOpen, err = countLiftsAndRuns(ctx, config)
-		return runsOpen, liftsOpen, err
+		return countLiftsAndRuns(ctx, config)
 	}
 
 	// Handles cases where the terrain data is on the same page as the conditions data
 	// with no special interactions required
 	terrainNodes := getTerrainNodes(ctx, config)
-	runsOpen, liftsOpen, err = processTerrain(ctx, config, terrainNodes)
-	return runsOpen, liftsOpen, err
+	return processTerrain(ctx, config, terrainNodes)
 }
 
 func ScrapeResortData(mountainName *string) (map[string]interface{}, error) {
@@ -287,16 +339,25 @@ func ScrapeWithConfig(config supabase.ScrapingConfig) (map[string]interface{}, e
 	if err != nil {
 		return nil, err
 	}
-	runsOpen, liftsOpen, err := getTerrainData(ctx, config)
+	terrain, err := getTerrainData(ctx, config)
 	if err != nil {
 		return nil, err
 	}
+	terrain = addTotals(ctx, config.Terrain, terrain)
 
 	resortConditions["base_depth"] = baseDepth
 	resortConditions["snow_past_24h"] = snow24
 	resortConditions["snow_past_48h"] = snow48
-	resortConditions["runs_open"] = runsOpen
-	resortConditions["lifts_open"] = liftsOpen
+	resortConditions["runs_open"] = terrain.RunsOpen
+	resortConditions["lifts_open"] = terrain.LiftsOpen
+	// Totals only when the page gives them; the database keeps the last plausible value
+	// (see the resort_conditions totals trigger in powder-hound).
+	if terrain.RunsTotal > 0 {
+		resortConditions["total_runs"] = terrain.RunsTotal
+	}
+	if terrain.LiftsTotal > 0 {
+		resortConditions["total_lifts"] = terrain.LiftsTotal
+	}
 
 	if config.Conditions.SnowpackSelector != "" {
 		lowercaseSnowpack := cases.Lower(language.English, cases.Compact).String(snowpack)

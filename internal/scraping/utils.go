@@ -33,6 +33,22 @@ func removeDenominator(input string) (string, error) {
 	return result, err
 }
 
+var totalPattern = regexp.MustCompile(`(?i)\d[\d,]*\s*(?:/|\bof\b)\s*(\d[\d,]*)`)
+
+// parseTotal returns the denominator of an "open of total" count ("12 of 147", "12/147",
+// "Lifts Open: 0 of 9"), or 0 when the text doesn't include one.
+func parseTotal(input string) int {
+	m := totalPattern.FindStringSubmatch(input)
+	if m == nil {
+		return 0
+	}
+	n, err := strconv.Atoi(strings.ReplaceAll(m[1], ",", ""))
+	if err != nil {
+		return 0
+	}
+	return n
+}
+
 func convertStringToInt(input string) (int, error) {
 	// Handle special cases like "--" which should be treated as 0
 	trimmedInput := strings.TrimSpace(input)
