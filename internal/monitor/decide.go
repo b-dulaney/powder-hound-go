@@ -15,6 +15,9 @@ type ScrapeResult struct {
 	SeasonTotal int
 	RunsOpen    int
 	LiftsOpen   int
+	// Totals the page reported (0 = the page doesn't show one).
+	RunsTotal  int
+	LiftsTotal int
 }
 
 // Observation is everything the monitor knows about one resort at check time.
@@ -44,6 +47,9 @@ type Decision struct {
 	// that looks operating, since the hourly queue skips closed resorts and would never
 	// provide the second reading AutoOpen needs.
 	SaveScrape bool
+	// SaveTotals: the page's lift or run total differs from the stored one. Hourly scrapes
+	// write totals for resorts that are scraped; this keeps closed resorts' totals current.
+	SaveTotals bool
 	Reason     string
 }
 
@@ -74,6 +80,7 @@ func decide(o Observation, now time.Time) Decision {
 	impossible := ""
 	if o.Scrape != nil {
 		impossible = impossibleReading(*o.Scrape, o.State)
+		d.SaveTotals = impossible == "" && totalsChanged(*o.Scrape, o.State)
 	}
 
 	// Broken scraper. A closed resort's page often stops showing data, so only chase fixes
@@ -120,21 +127,47 @@ func decide(o Observation, now time.Time) Decision {
 	return d
 }
 
-// impossibleReading describes a scrape whose counts exceed the resort's known totals, or
-// returns "" when the numbers are plausible.
+// impossibleReading describes a scrape whose numbers can't be right, or returns "" when they
+// are plausible. Resorts add and remove lifts and runs between seasons, so a stored total is
+// only a rough bound: open counts are checked against the page's own total when it shows one,
+// and otherwise against the stored total with headroom.
 func impossibleReading(r ScrapeResult, state supabase.ResortState) string {
+	if why := impossibleCount("lifts", r.LiftsOpen, r.LiftsTotal, state.TotalLifts); why != "" {
+		return why
+	}
+	return impossibleCount("runs", r.RunsOpen, r.RunsTotal, state.TotalRuns)
+}
+
+func impossibleCount(what string, open, pageTotal int, stored *int) string {
 	switch {
-	case exceeds(r.LiftsOpen, state.TotalLifts):
-		return fmt.Sprintf("scraped %d lifts open but the resort has %d", r.LiftsOpen, *state.TotalLifts)
-	case exceeds(r.RunsOpen, state.TotalRuns):
-		return fmt.Sprintf("scraped %d runs open but the resort has %d", r.RunsOpen, *state.TotalRuns)
+	case pageTotal > 0 && open > pageTotal:
+		return fmt.Sprintf("scraped %d of %d %s open", open, pageTotal, what)
+	case pageTotal > 0 && implausibleTotal(pageTotal, stored):
+		return fmt.Sprintf("scraped a total of %d %s but the resort has %d", pageTotal, what, *stored)
+	case pageTotal == 0 && exceeds(open, stored):
+		return fmt.Sprintf("scraped %d %s open but the resort has %d", open, what, *stored)
 	}
 	return ""
 }
 
-// exceeds reports whether n is more than a known, positive total.
+// totalsChanged reports whether the page showed a lift or run total that differs from the
+// stored one.
+func totalsChanged(r ScrapeResult, state supabase.ResortState) bool {
+	return (r.LiftsTotal > 0 && r.LiftsTotal != intValue(state.TotalLifts)) ||
+		(r.RunsTotal > 0 && r.RunsTotal != intValue(state.TotalRuns))
+}
+
+// implausibleTotal reports whether a scraped total is too far from the stored one (under half
+// or over double) to be a real change; the database refuses those too.
+func implausibleTotal(n int, stored *int) bool {
+	return stored != nil && *stored > 0 && (n*2 < *stored || n > *stored*2)
+}
+
+// exceeds reports whether n open is more than 1.5x a known, positive total: room for lifts
+// and runs added since the total was set, while still catching a selector that read the
+// wrong number (147 lifts at a 9-lift resort).
 func exceeds(n int, total *int) bool {
-	return total != nil && *total > 0 && n > *total
+	return total != nil && *total > 0 && n*2 > *total*3
 }
 
 // inOpeningWindow covers October through December, when Colorado resorts open.
@@ -210,5 +243,7 @@ func toScrapeResult(m map[string]interface{}) ScrapeResult {
 		SeasonTotal: get("snow_total"),
 		RunsOpen:    get("runs_open"),
 		LiftsOpen:   get("lifts_open"),
+		RunsTotal:   get("total_runs"),
+		LiftsTotal:  get("total_lifts"),
 	}
 }

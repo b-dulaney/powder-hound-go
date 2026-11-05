@@ -108,6 +108,31 @@ func TestDecide(t *testing.T) {
 			now:  nov, want: Decision{FixConfig: true, Reason: "scraped 9000 runs open but the resort has 147"},
 		},
 		{
+			name: "a lift added since the total was set is not impossible",
+			o:    Observation{State: supabase.ResortState{Status: "open", StatusSource: "auto", LiftsOpen: ptr(9), TotalLifts: ptr(9)}, Scrape: &ScrapeResult{LiftsOpen: 10, RunsOpen: 40}},
+			now:  nov, want: Decision{},
+		},
+		{
+			name: "a page total that changed is saved",
+			o:    Observation{State: supabase.ResortState{Status: "closed", StatusSource: "auto", TotalLifts: ptr(9), TotalRuns: ptr(144)}, Scrape: &ScrapeResult{LiftsTotal: 9, RunsTotal: 147}},
+			now:  jul, want: Decision{SaveTotals: true},
+		},
+		{
+			name: "more open than the page's own total is a broken scrape",
+			o:    Observation{State: supabase.ResortState{Status: "open", StatusSource: "auto", TotalRuns: ptr(147)}, Scrape: &ScrapeResult{RunsOpen: 200, RunsTotal: 147, LiftsOpen: 3}},
+			now:  nov, want: Decision{FixConfig: true, Reason: "scraped 200 of 147 runs open"},
+		},
+		{
+			name: "a page total far from the stored one is a broken scrape and not saved",
+			o:    Observation{State: supabase.ResortState{Status: "open", StatusSource: "auto", TotalLifts: ptr(9)}, Scrape: &ScrapeResult{LiftsOpen: 3, LiftsTotal: 40, RunsOpen: 20}},
+			now:  nov, want: Decision{FixConfig: true, Reason: "scraped a total of 40 lifts but the resort has 9"},
+		},
+		{
+			name: "a page total with no stored total is saved",
+			o:    Observation{State: supabase.ResortState{Status: "open", StatusSource: "auto", RunsOpen: ptr(20)}, Scrape: &ScrapeResult{RunsOpen: 20, RunsTotal: 80}},
+			now:  nov, want: Decision{SaveTotals: true},
+		},
+		{
 			name: "manual status still gets config fixes",
 			o:    Observation{State: supabase.ResortState{Status: "open", StatusSource: "manual"}, ScrapeErr: errors.New("boom")},
 			now:  nov, want: Decision{FixConfig: true, Reason: "scrape failed: boom"},
@@ -424,6 +449,20 @@ func TestConfirmOpen(t *testing.T) {
 				t.Errorf("expected the confirming scrape to be saved, got %+v", tc.store.saved)
 			}
 		})
+	}
+}
+
+func TestRunSavesChangedTotals(t *testing.T) {
+	store := abasinStore("closed", 0)
+	m := newTestMonitor(store, &fakeClaude{}, &fakeRepo{}, func(supabase.ScrapingConfig) (map[string]interface{}, error) {
+		return map[string]interface{}{"mountain_id": 5, "base_depth": 0, "lifts_open": 0, "runs_open": 0, "total_lifts": 10}, nil
+	})
+	m.Now = func() time.Time { return jul }
+	if err := m.Run(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(store.saved) != 1 || store.saved[0]["total_lifts"] != 10 || store.saved[0]["mountain_id"] != 5 || len(store.saved[0]) != 2 {
+		t.Fatalf("expected only the new total to be saved, got %+v", store.saved)
 	}
 }
 

@@ -53,6 +53,14 @@ type TerrainConfig struct {
 	RunStatusSelector          string `json:"runStatusSelector"`
 	RunClickInteraction        bool   `json:"runClickInteraction"`
 	RunClickSelector           string `json:"runClickSelector"`
+	// Optional, for pages whose open counts don't include the total ("12 of 147" is read
+	// automatically). A total selector's text is the total ("147") or an "open of total"
+	// count ("12 / 147"); a row selector matches every lift or run row, open or not, and the
+	// total is how many match.
+	LiftTotalSelector string `json:"liftTotalSelector,omitempty"`
+	RunTotalSelector  string `json:"runTotalSelector,omitempty"`
+	LiftRowSelector   string `json:"liftRowSelector,omitempty"`
+	RunRowSelector    string `json:"runRowSelector,omitempty"`
 }
 
 type ScrapingConfig struct {
