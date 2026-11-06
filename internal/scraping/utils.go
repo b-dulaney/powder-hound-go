@@ -49,6 +49,8 @@ func parseTotal(input string) int {
 	return n
 }
 
+var firstNumber = regexp.MustCompile(`\d[\d,]*`)
+
 func convertStringToInt(input string) (int, error) {
 	// Handle special cases like "--" which should be treated as 0
 	trimmedInput := strings.TrimSpace(input)
@@ -56,13 +58,9 @@ func convertStringToInt(input string) (int, error) {
 		return 0, nil
 	}
 
-	cleanedString, err := removeNonNumericCharacters(input)
-	log.Print(cleanedString)
-	if err != nil {
-		return 0, err
-	}
-
-	// If after removing non-numeric characters we have an empty string, treat as 0
+	// The first number in the text, so labels that contain digits don't run into the value
+	// ("0\" Past 48HRS" is 0, not 48). Anything after a "." is dropped, as before.
+	cleanedString := strings.ReplaceAll(firstNumber.FindString(strings.Split(input, ".")[0]), ",", "")
 	if cleanedString == "" {
 		return 0, nil
 	}
@@ -87,6 +85,17 @@ func runChromeDP(ctx context.Context, tasks ...chromedp.Action) error {
 func getTextFromNode(ctx context.Context, selector string, node *cdp.Node, result *string) {
 	log.Printf("Getting text from node with selector: %s", selector)
 	if selector != "" {
-		runChromeDP(ctx, chromedp.Text(selector, result, chromedp.ByQuery, chromedp.FromNode(node)))
+		readText(ctx, selector, node, result)
 	}
+}
+
+// readText reads the rendered text of the first element matching selector inside node. Hidden
+// elements (a closed header popup, say) have no rendered text, so for those it falls back to
+// textContent.
+func readText(ctx context.Context, selector string, node *cdp.Node, result *string) error {
+	err := runChromeDP(ctx, chromedp.Text(selector, result, chromedp.ByQuery, chromedp.FromNode(node)))
+	if err != nil || strings.TrimSpace(*result) != "" {
+		return err
+	}
+	return runChromeDP(ctx, chromedp.TextContent(selector, result, chromedp.ByQuery, chromedp.FromNode(node)))
 }
