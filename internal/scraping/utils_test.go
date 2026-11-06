@@ -22,3 +22,23 @@ func TestParseTotal(t *testing.T) {
 		}
 	}
 }
+
+func TestConvertStringToInt(t *testing.T) {
+	cases := map[string]int{
+		`0" Past 48HRS`:           0,
+		`12" Past 24HRS`:          12,
+		`18 in Mid-Mountain Base`: 18,
+		`Season Total: 7"`:        7,
+		`1,234`:                   1234,
+		`4.5"`:                    4,
+		`--`:                      0,
+		``:                        0,
+		`no data`:                 0,
+	}
+	for in, want := range cases {
+		got, err := convertStringToInt(in)
+		if err != nil || got != want {
+			t.Errorf("convertStringToInt(%q) = %d, %v; want %d", in, got, err, want)
+		}
+	}
+}

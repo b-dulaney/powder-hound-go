@@ -160,9 +160,7 @@ func processConditions(ctx context.Context, config supabase.ScrapingConfig, cond
 
 		for i := 0; i < maxRetries; i++ {
 			var testText string
-			err := chromedp.Run(ctx,
-				chromedp.Text(config.Conditions.BaseDepthSelector, &testText, chromedp.ByQuery, chromedp.FromNode(node)),
-			)
+			err := readText(ctx, config.Conditions.BaseDepthSelector, node, &testText)
 
 			trimmedText := strings.TrimSpace(testText)
 			// Check that the text contains at least one digit (actual data)
@@ -195,11 +193,9 @@ func processConditions(ctx context.Context, config supabase.ScrapingConfig, cond
 		getTextFromNode(ctx, config.Conditions.SnowpackSelector, node, &snowpack)
 		getTextFromNode(ctx, config.Conditions.SeasonTotalSelector, node, &seasonTotal)
 		getTextFromNode(ctx, config.Conditions.Snow7DaySelector, node, &snow7Days)
-		runChromeDP(ctx,
-			chromedp.Text(config.Conditions.BaseDepthSelector, &baseDepthText, chromedp.ByQuery, chromedp.FromNode(node)),
-			chromedp.Text(config.Conditions.Snow24Selector, &snow24Text, chromedp.ByQuery, chromedp.FromNode(node)),
-			chromedp.Text(config.Conditions.Snow48Selector, &snow48Text, chromedp.ByQuery, chromedp.FromNode(node)),
-		)
+		readText(ctx, config.Conditions.BaseDepthSelector, node, &baseDepthText)
+		readText(ctx, config.Conditions.Snow24Selector, node, &snow24Text)
+		readText(ctx, config.Conditions.Snow48Selector, node, &snow48Text)
 	}
 
 	log.Printf("Node processing completed.")
