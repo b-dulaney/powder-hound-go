@@ -20,29 +20,51 @@ import (
 type GitHub struct {
 	http    *http.Client
 	baseURL string
-	token   string
-	repo    string // owner/name
+	token   string   // static token (GITHUB_TOKEN); unused when app is set
+	app     *appAuth // GitHub App installation auth, preferred when configured
+	repo    string   // owner/name
 	// Base is the branch PRs target (master for production, dev for the dev environment).
 	Base string
 }
 
+// NewGitHub signs in as the GitHub App in GITHUB_APP_ID / GITHUB_APP_PRIVATE_KEY when both are
+// set (issues and PRs then come from the app's bot, so the owner is notified), else with
+// GITHUB_TOKEN. GITHUB_REPO is required either way.
 func NewGitHub() (*GitHub, error) {
-	token := os.Getenv("GITHUB_TOKEN")
 	repo := os.Getenv("GITHUB_REPO")
-	if token == "" || repo == "" {
-		return nil, errors.New("GITHUB_TOKEN and GITHUB_REPO must be set")
+	if repo == "" {
+		return nil, errors.New("GITHUB_REPO must be set")
 	}
-	base := os.Getenv("GITHUB_BASE_BRANCH")
-	if base == "" {
-		base = "master"
-	}
-	return &GitHub{
+	g := &GitHub{
 		http:    &http.Client{Timeout: 30 * time.Second},
 		baseURL: "https://api.github.com",
-		token:   token,
 		repo:    repo,
-		Base:    base,
-	}, nil
+		Base:    os.Getenv("GITHUB_BASE_BRANCH"),
+	}
+	if g.Base == "" {
+		g.Base = "master"
+	}
+	appID, appKey := os.Getenv("GITHUB_APP_ID"), os.Getenv("GITHUB_APP_PRIVATE_KEY")
+	switch {
+	case appID != "" && appKey != "":
+		key, err := parseAppKey(appKey)
+		if err != nil {
+			return nil, err
+		}
+		g.app = &appAuth{appID: appID, key: key, now: time.Now}
+	case os.Getenv("GITHUB_TOKEN") != "":
+		g.token = os.Getenv("GITHUB_TOKEN")
+	default:
+		return nil, errors.New("set GITHUB_APP_ID and GITHUB_APP_PRIVATE_KEY, or GITHUB_TOKEN")
+	}
+	return g, nil
+}
+
+func (g *GitHub) authToken(ctx context.Context) (string, error) {
+	if g.app != nil {
+		return g.app.installationToken(ctx, g.http, g.baseURL, g.repo)
+	}
+	return g.token, nil
 }
 
 type Issue struct {
@@ -74,7 +96,11 @@ func (g *GitHub) do(ctx context.Context, method, path string, body, out any) err
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Authorization", "Bearer "+g.token)
+	token, err := g.authToken(ctx)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 	if body != nil {
