@@ -10,8 +10,10 @@ name: CI
 #
 # Secrets: SSH_USER, SSH_KEY, SCRAPING_SERVICE_HOST, EMAIL_SERVICE_HOST,
 #          SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (prod sb_secret_ key), RESEND_API_KEY,
-#          ANTHROPIC_API_KEY and MONITOR_GITHUB_TOKEN (scraper monitor; GitHub reserves the
-#          GITHUB_ prefix for secret names, so it's written to .env as GITHUB_TOKEN).
+#          ANTHROPIC_API_KEY, and MONITOR_APP_ID + MONITOR_APP_PRIVATE_KEY (the scraper monitor's
+#          GitHub App; the key base64-encoded on one line) or the older MONITOR_GITHUB_TOKEN
+#          (GitHub reserves the GITHUB_ prefix for secret names, so these are written to .env
+#          as GITHUB_APP_ID / GITHUB_APP_PRIVATE_KEY / GITHUB_TOKEN).
 # The droplets log in to ghcr.io with this run's short-lived GITHUB_TOKEN; no setup needed.
 on:
   push:
@@ -118,14 +120,21 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           MONITOR_GITHUB_TOKEN: ${{ secrets.MONITOR_GITHUB_TOKEN }}
+          MONITOR_APP_ID: ${{ secrets.MONITOR_APP_ID }}
+          MONITOR_APP_PRIVATE_KEY: ${{ secrets.MONITOR_APP_PRIVATE_KEY }}
         run: |
           for v in SUPABASE_URL SUPABASE_SERVICE_ROLE_KEY; do
             if [ -z "${!v}" ]; then echo "::error::Actions secret $v is not set"; exit 1; fi
           done
           # The scraper doesn't need these; without them the monitor only logs its findings.
-          for v in ANTHROPIC_API_KEY MONITOR_GITHUB_TOKEN; do
-            if [ -z "${!v}" ]; then echo "::warning::Actions secret $v is not set; the scraper monitor will run without it"; fi
-          done
+          if [ -z "$ANTHROPIC_API_KEY" ]; then echo "::warning::Actions secret ANTHROPIC_API_KEY is not set; the scraper monitor will run without it"; fi
+          if [ -n "$MONITOR_APP_ID" ] && [ -n "$MONITOR_APP_PRIVATE_KEY" ]; then
+            if ! printf '%s' "$MONITOR_APP_PRIVATE_KEY" | base64 -d 2>/dev/null | grep -q 'BEGIN .*PRIVATE KEY'; then
+              echo "::error::MONITOR_APP_PRIVATE_KEY must be the app's .pem file base64-encoded on one line (base64 -w0 key.pem)"; exit 1
+            fi
+          elif [ -z "$MONITOR_GITHUB_TOKEN" ]; then
+            echo "::warning::Neither MONITOR_APP_ID/MONITOR_APP_PRIVATE_KEY nor MONITOR_GITHUB_TOKEN is set; the scraper monitor won't open issues or PRs"
+          fi
       - name: Deploy Scraping Service
         uses: appleboy/ssh-action@v1.2.0
         env:
@@ -133,6 +142,8 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           MONITOR_GITHUB_TOKEN: ${{ secrets.MONITOR_GITHUB_TOKEN }}
+          MONITOR_APP_ID: ${{ secrets.MONITOR_APP_ID }}
+          MONITOR_APP_PRIVATE_KEY: ${{ secrets.MONITOR_APP_PRIVATE_KEY }}
           IMAGE_TAG: ${{ github.sha }}
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -141,7 +152,7 @@ jobs:
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
           command_timeout: 15m
-          envs: SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY,ANTHROPIC_API_KEY,MONITOR_GITHUB_TOKEN,IMAGE_TAG,GHCR_USER,GHCR_TOKEN
+          envs: SUPABASE_URL,SUPABASE_SERVICE_ROLE_KEY,ANTHROPIC_API_KEY,MONITOR_GITHUB_TOKEN,MONITOR_APP_ID,MONITOR_APP_PRIVATE_KEY,IMAGE_TAG,GHCR_USER,GHCR_TOKEN
           script: |
             set -eu
             cd powder-hound-go
@@ -152,6 +163,9 @@ jobs:
               # Scraper monitor: daily at 11:00 America/Denver; fix PRs target master (prod).
               printf 'ANTHROPIC_API_KEY=%s\nGITHUB_TOKEN=%s\n' "$ANTHROPIC_API_KEY" "$MONITOR_GITHUB_TOKEN"
               printf 'GITHUB_REPO=b-dulaney/powder-hound\nGITHUB_BASE_BRANCH=master\n'
+              # GitHub App (preferred over GITHUB_TOKEN): issues/PRs come from its bot, so the
+              # owner gets notified. The key secret is base64 of the .pem, so it fits on one line.
+              printf 'GITHUB_APP_ID=%s\nGITHUB_APP_PRIVATE_KEY=%s\n' "${MONITOR_APP_ID:-}" "${MONITOR_APP_PRIVATE_KEY:-}"
             } > .env.new
             mv .env.new .env
             compose="docker compose -f deployment/scraping-service/docker-compose.yml"
