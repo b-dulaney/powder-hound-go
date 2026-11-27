@@ -23,6 +23,8 @@ The Email Service is responsible for building and sending forecast and overnight
 
 The Scraping Service is responsible for scraping ski resort data from various resort websites. It uses the Chromedp library for web scraping. The main logic can be found in [`internal/scraping/scraping.go`](command:_github.copilot.openSymbolInFile?%5B%22internal%2Fscraping%2Fscraping.go%22%2C%22internal%2Fscraping%2Fscraping.go%22%5D "internal/scraping/scraping.go").
 
+It also captures the resorts' snow stake cams (the `cams` list in each scraper config) hourly into the public `resort-cams` Storage bucket, keeping 7 days of frames; see `internal/cams`. `go run ./cmd/cams` runs one capture pass without Redis.
+
 ## Deployment
 
 Both services are containerized using Docker, and are deployed via GitHub Actions using the provided Docker Compose files in the [`deployment/`](command:_github.copilot.openRelativePath?%5B%22deployment%2F%22%5D "deployment/") directory.

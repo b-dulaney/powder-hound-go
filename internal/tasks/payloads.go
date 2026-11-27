@@ -14,6 +14,8 @@ const (
 	TypeOvernightEmail       = "email:overnight"
 	TypeMonitorDaily         = "monitor:daily"
 	TypeMonitorConfirmOpen   = "monitor:confirm-open"
+	TypeCamCapture           = "cam:capture"
+	TypeCamCleanup           = "cam:cleanup"
 )
 
 func NewResortWebScrapeTask(name string) (*asynq.Task, error) {

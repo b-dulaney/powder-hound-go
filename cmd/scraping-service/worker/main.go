@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"powderhoundgo/internal/cams"
 	"powderhoundgo/internal/monitor"
 	"powderhoundgo/internal/tasks"
 	"powderhoundgo/internal/util"
@@ -31,6 +32,8 @@ func main() {
 	mux.HandleFunc(tasks.TypeAvalancheScrapingJob, tasks.HandleAvalancheScrapingTask)
 	mux.HandleFunc(tasks.TypeMonitorDaily, monitor.DailyTask(client))
 	mux.HandleFunc(tasks.TypeMonitorConfirmOpen, monitor.HandleConfirmOpenTask)
+	mux.HandleFunc(tasks.TypeCamCapture, cams.HandleCaptureTask)
+	mux.HandleFunc(tasks.TypeCamCleanup, cams.HandleCleanupTask)
 
 	if err := srv.Run(mux); err != nil {
 		log.Fatal(err)
