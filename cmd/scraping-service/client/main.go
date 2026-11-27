@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"os/signal"
+	"powderhoundgo/internal/cams"
 	"powderhoundgo/internal/supabase"
 	"powderhoundgo/internal/util"
 	"syscall"
@@ -23,6 +24,8 @@ func main() {
 	defer client.Close()
 
 	cron := util.InitializeScrapingCronTasks(client, supabase)
+	// Registered here, not in util, so the email binaries don't compile cam capture.
+	cams.AddCronTasks(cron, client)
 
 	go cron.Start()
 	sig := make(chan os.Signal, 1)
